@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Uygulama Arayüzü</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563EB;
+            --dark-background: #0B0F19;
+            --surface: #111827;
+            --soft-surface: #1F2937;
+            --border: #2D3748;
+            --text-primary: #E5E7EB;
+        }
+
+        body {
+            background-color: var(--dark-background);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .accordion-content.open { max-height: 1000px; }
+
+        /* Yeni Profil Kartı Stili */
+        .profile-ring {
+            position: relative;
+            padding: 3px;
+            background: conic-gradient(#3b82f6, #8b5cf6, #ec4899, #f59e0b, #3b82f6);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .profile-ring img, .profile-ring .avatar-fallback {
+            border: 3px solid #111827;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .user-card {
+            background: rgba(31, 41, 55, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+        .user-card:hover {
+            border-color: rgba(37, 99, 235, 0.4);
+            background: rgba(31, 41, 55, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .nav-item-active {
+            background-color: var(--soft-surface);
+            color: white;
+            border-left: 3px solid var(--primary);
+        }
+
+        .markdown-preview h1 { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; }
+        .markdown-preview p { margin-bottom: 1rem; color: #D1D5DB; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <aside class="w-[300px] bg-[#0B0F19] border-r border-[#2D3748] flex flex-col shrink-0">
+        <div class="p-6 border-b border-[#2D3748] flex items-center gap-4">
+            <div class="profile-ring">
+                <div class="avatar-fallback w-10 h-10 bg-gray-800 flex items-center justify-center font-bold text-white text-xs">JD</div>
+            </div>
+            <div class="min-w-0">
+                <p class="font-bold text-sm truncate">John Doe</p>
+                <p class="text-[10px] text-[#16A34A] font-semibold">Aktif Üye</p>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
+            <button onclick="showDiscussion()" id="nav-discussion" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#1F2937] text-[#9CA3AF] hover:text-white transition-all nav-item-active">
+                <i data-lucide="layout" class="w-4 h-4"></i>
+                <span class="text-xs font-bold uppercase tracking-widest">Tartışmalar</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex relative bg-[#0B0F19] overflow-hidden">
+
+        <div id="view-discussion" class="flex flex-1 h-full overflow-hidden">
+
+            <!-- LISTE -->
+            <div id="discussion-list" class="flex-1 flex flex-col h-full border-r border-[#2D3748]">
+                <header class="h-[73px] border-b border-[#2D3748] flex items-center justify-between px-8 bg-[#111827]/30">
+                    <h2 class="font-bold text-lg">Tartışma Panosu</h2>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-lg shadow-blue-500/20">+ Yeni Başlık</button>
+                </header>
+                <div class="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar">
+                    <!-- Başlık Kartı -->
+                    <div onclick="openDiscussionDetail('Modern UI kütüphaneleri arasında seçim yapmak: Melt mi, Radix mi?')" class="user-card p-6 rounded-2xl cursor-pointer">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="profile-ring">
+                                <div class="avatar-fallback w-12 h-12 bg-indigo-600 flex items-center justify-center font-bold text-white text-sm">AK</div>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg leading-tight">Modern UI kütüphaneleri arasında seçim yapmak: Melt mi, Radix mi?</h3>
+                                <p class="text-[11px] text-gray-500 mt-1">Ahmet Kaya tarafından 12 dakika önce paylaşıldı</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 text-xs text-gray-400">
+                            <span class="flex items-center gap-1"><i data-lucide="message-square" class="w-3.5 h-3.5"></i> 24 Yanıt</span>
+                            <span class="flex items-center gap-1"><i data-lucide="thumbs-up" class="w-3.5 h-3.5"></i> 128 Oy</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DETAY -->
+            <div id="discussion-detail" class="hidden flex-1 flex flex-col h-full bg-[#0B0F19]">
+                <header class="h-[73px] border-b border-[#2D3748] flex items-center justify-between px-6 bg-[#111827]/30 shrink-0">
+                    <div class="flex items-center gap-4">
+                        <button onclick="closeDiscussionDetail()" class="p-2 hover:bg-[#1F2937] rounded-lg text-gray-400 transition-colors"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <h2 class="font-bold text-sm truncate max-w-[300px]" id="detail-header-title">Konu Başlığı</h2>
+                    </div>
+                    <button onclick="openReplyModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20">
+                        <i data-lucide="reply" class="w-4 h-4"></i> Yanıtla
+                    </button>
+                </header>
+
+                <div class="flex-1 flex flex-col overflow-hidden">
+                    <!-- [ CONTENT ] -->
+                    <div class="p-10 shrink-0">
+                        <div class="flex gap-8">
+                            <div class="flex flex-col items-center gap-4">
+                                <div class="profile-ring">
+                                    <div class="avatar-fallback w-16 h-16 bg-indigo-600 flex items-center justify-center font-bold text-white text-xl">AK</div>
+                                </div>
+                                <div class="flex flex-col items-center gap-1">
+                                    <button class="p-1.5 hover:text-blue-500 transition-colors"><i data-lucide="chevron-up" class="w-6 h-6"></i></button>
+                                    <span class="font-bold text-lg">128</span>
+                                    <button class="p-1.5 hover:text-red-500 transition-colors"><i data-lucide="chevron-down" class="w-6 h-6"></i></button>
+                                </div>
+                            </div>
+                            <div class="flex-1 pt-1">
+                                <h1 class="text-3xl font-black mb-6 tracking-tight" id="detail-main-title">Başlık</h1>
+                                <div class="text-gray-300 text-base leading-relaxed max-w-3xl">
+                                    Svelte projelerimde headless component kütüphanesi kullanmak istiyorum. Radix çok köklü bir kütüphane ama Melt UI'ın Svelte için daha "native" hissettirdiği söyleniyor.
+                                    <br><br>
+                                    Erişilebilirlik ve performans odaklı bir projede hangisini seçmeliyim?
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AYIRICI -->
+                    <div class="px-10 py-4 flex items-center gap-6 shrink-0">
+                        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-[#2D3748] to-transparent"></div>
+                        <span class="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em]">Yorumlar</span>
+                        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-[#2D3748] to-transparent"></div>
+                    </div>
+
+                    <!-- [ IN SCROLL REPLYS ] -->
+                    <div class="flex-1 overflow-y-auto p-10 pt-2 custom-scrollbar space-y-6">
+                        <!-- Örnek Yanıt -->
+                        <div class="user-card p-6 rounded-2xl flex gap-6">
+                            <div class="shrink-0">
+                                <div class="profile-ring">
+                                    <div class="avatar-fallback w-10 h-10 bg-emerald-500 flex items-center justify-center font-bold text-white text-xs">EY</div>
+                                </div>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-bold text-sm">Ender Yaman</span>
+                                    <span class="text-[10px] text-gray-500">• 5 dk önce</span>
+                                </div>
+                                <p class="text-sm text-gray-300 leading-normal">Melt UI, Svelte'in action yapısını kullandığı için Radix'e göre çok daha hafif. Özellikle TypeScript desteği muazzam.</p>
+                                <div class="mt-4 flex items-center gap-4">
+                                    <button class="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-wider flex items-center gap-1"><i data-lucide="heart" class="w-3 h-3"></i> Beğen</button>
+                                    <button class="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-wider">Cevapla</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MODAL -->
+    <div id="reply-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+        <div class="user-card w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border-white/10">
+            <div class="p-6 border-b border-white/5 flex items-center justify-between">
+                <h3 class="font-bold">Yanıtın</h3>
+                <button onclick="closeReplyModal()" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6">
+                <div class="flex gap-6 mb-4">
+                    <button onclick="switchReplyTab('write')" id="tab-write" class="text-xs font-black uppercase tracking-widest pb-2 border-b-2 border-blue-500">Düzenle</button>
+                    <button onclick="switchReplyTab('preview')" id="tab-preview" class="text-xs font-black uppercase tracking-widest pb-2 border-b-2 border-transparent text-gray-500">Önizleme</button>
+                </div>
+                <div id="reply-write-area">
+                    <textarea id="reply-input" class="w-full h-40 bg-[#0B0F19]/50 border border-white/5 rounded-2xl p-4 text-sm outline-none focus:border-blue-500/50 resize-none custom-scrollbar shadow-inner"></textarea>
+                </div>
+                <div id="reply-preview-area" class="hidden h-40 bg-[#0B0F19]/50 border border-white/5 rounded-2xl p-4 text-sm overflow-y-auto custom-scrollbar markdown-preview"></div>
+            </div>
+            <div class="p-6 bg-white/5 flex justify-end gap-4">
+                <button onclick="submitReply()" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all">Gönder</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        function showDiscussion() {
+            document.getElementById('view-discussion').classList.remove('hidden');
+            closeDiscussionDetail();
+        }
+
+        function openDiscussionDetail(title) {
+            document.getElementById('discussion-list').classList.add('hidden');
+            document.getElementById('discussion-detail').classList.remove('hidden');
+            document.getElementById('detail-header-title').innerText = title;
+            document.getElementById('detail-main-title').innerText = title;
+            lucide.createIcons();
+        }
+
+        function closeDiscussionDetail() {
+            document.getElementById('discussion-list').classList.remove('hidden');
+            document.getElementById('discussion-detail').classList.add('hidden');
+        }
+
+        function openReplyModal() { document.getElementById('reply-modal').classList.remove('hidden'); }
+        function closeReplyModal() { document.getElementById('reply-modal').classList.add('hidden'); }
+
+        function switchReplyTab(tab) {
+            const isWrite = tab === 'write';
+            document.getElementById('reply-write-area').classList.toggle('hidden', !isWrite);
+            document.getElementById('reply-preview-area').classList.toggle('hidden', isWrite);
+            document.getElementById('tab-write').classList.toggle('border-blue-500', isWrite);
+            document.getElementById('tab-write').classList.toggle('text-gray-500', !isWrite);
+            document.getElementById('tab-preview').classList.toggle('border-blue-500', !isWrite);
+            document.getElementById('tab-preview').classList.toggle('text-gray-500', isWrite);
+
+            if (!isWrite) {
+                document.getElementById('reply-preview-area').innerHTML = marked.parse(document.getElementById('reply-input').value || "*Boş içerik...*");
+            }
+        }
+
+        function submitReply() {
+            closeReplyModal();
+            document.getElementById('reply-input').value = "";
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Novastrum | Auth</title>
+  <link rel="stylesheet" href="melt.css">
+</head>
+<body>
+  <main class="screen">
+    <section class="card" aria-labelledby="auth-title">
+      <div class="card-body">
+        <span class="badge badge-green">Kimlik Dogrulama</span>
+        <h1 id="auth-title" class="title">Auth Merkezi</h1>
+        <p class="subtitle">Sign in, sign up, reset password ve PIN adimlari tek ekranda.</p>
+
+        <nav class="tabs" id="auth-tabs" style="margin-top: 16px;">
+          <button class="tab active" data-target="sign-in">Sign In</button>
+          <button class="tab" data-target="sign-up">Sign Up</button>
+          <button class="tab" data-target="reset">Reset</button>
+          <button class="tab" data-target="pin">PIN</button>
+        </nav>
+
+        <div class="grid" style="margin-top: 14px;">
+          <form class="grid" data-panel="sign-in" id="signin-form">
+            <label>
+              <span class="label">Login Username</span>
+              <input class="input" name="login_username" placeholder="admin" required>
+            </label>
+            <label>
+              <span class="label">Password (a-z0-9)</span>
+              <input class="input" type="password" name="password" placeholder="admin123" required>
+            </label>
+            <label>
+              <span class="label">Device Label (opsiyonel)</span>
+              <input class="input" name="device_label" placeholder="laptop-tr">
+            </label>
+            <button class="button button-primary" type="submit">Giris Yap</button>
+          </form>
+
+          <form class="grid hidden" data-panel="sign-up" id="signup-form">
+            <label>
+              <span class="label">Login Username</span>
+              <input class="input" name="login_username" placeholder="new_user" required>
+            </label>
+            <label>
+              <span class="label">Public Username</span>
+              <input class="input" name="public_username" placeholder="new_user" required>
+            </label>
+            <label>
+              <span class="label">Password (a-z0-9)</span>
+              <input class="input" type="password" name="password" placeholder="user123" required>
+            </label>
+            <button class="button button-primary" type="submit">Kayit Ol</button>
+          </form>
+
+          <form class="grid hidden" data-panel="reset" id="reset-form">
+            <label>
+              <span class="label">Login Username</span>
+              <input class="input" name="login_username" placeholder="admin" required>
+            </label>
+            <label>
+              <span class="label">Yeni Password (a-z0-9)</span>
+              <input class="input" name="new_password" placeholder="admin456" required>
+            </label>
+            <label>
+              <span class="label">PIN</span>
+              <input class="input" name="pin" placeholder="000000" required>
+            </label>
+            <button class="button button-soft" type="submit">Sifreyi Sifirla</button>
+          </form>
+
+          <form class="grid hidden" data-panel="pin" id="pin-form">
+            <label>
+              <span class="label">PIN</span>
+              <input class="input" name="pin" placeholder="000000" required>
+            </label>
+            <button class="button button-soft" type="submit">PIN Dogrula</button>
+          </form>
+        </div>
+
+        <div id="auth-notice" class="notice hidden" style="margin-top: 14px;"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="melt.js"></script>
+  <script>
+    Melt.tabSwitch("#auth-tabs", ".tab", "data-panel");
+
+    const noticeId = "auth-notice";
+
+    async function handleSubmit(formId, endpoint, payloadBuilder, onSuccess) {
+      const form = document.getElementById(formId);
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        Melt.hideNotice(noticeId);
+
+        const formData = new FormData(form);
+        const payload = payloadBuilder(formData);
+
+        const result = await Melt.api(endpoint, "POST", payload);
+        if (!result.ok || !result.body.ok) {
+          Melt.showNotice(noticeId, result.body.message || "Islem basarisiz", "error");
+          return;
+        }
+
+        if (onSuccess) {
+          await onSuccess(result.body);
+        }
+
+        Melt.showNotice(noticeId, result.body.message || "Islem basarili", "success");
+      });
+    }
+
+    handleSubmit("signin-form", "/api/auth/login", (fd) => ({
+      login_username: fd.get("login_username"),
+      password: fd.get("password"),
+      device_label: fd.get("device_label") || null
+    }), async (body) => {
+      window.setTimeout(() => {
+        window.location.href = body.data.redirect;
+      }, 450);
+    });
+
+    handleSubmit("signup-form", "/api/auth/register", (fd) => ({
+      login_username: fd.get("login_username"),
+      public_username: fd.get("public_username"),
+      password: fd.get("password")
+    }));
+
+    handleSubmit("reset-form", "/api/auth/reset", (fd) => ({
+      login_username: fd.get("login_username"),
+      new_password: fd.get("new_password"),
+      pin: fd.get("pin")
+    }));
+
+    handleSubmit("pin-form", "/api/auth/pin", (fd) => ({
+      pin: fd.get("pin")
+    }));
+  </script>
+</body>
+</html>

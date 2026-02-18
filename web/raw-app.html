@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Novastrum Raw UI</title>
+  <style>
+    :root {
+      --bg: #0c0f15;
+      --panel: #121726;
+      --panel-2: #0f1420;
+      --text: #e8ecf1;
+      --muted: #9fb0c7;
+      --border: #1f2733;
+      --primary: #2f7dfa;
+      --danger: #c63f48;
+      --success: #26c281;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Inter", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    h2 { margin: 6px 0; }
+    .page { display: grid; grid-template-columns: 300px 1fr 340px; gap: 10px; padding: 10px; }
+    .card { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 10px; }
+    .list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow: auto; }
+    button { cursor: pointer; }
+    .btn { padding: 7px 11px; border: 1px solid #2b3545; background: #1b2230; color: var(--text); border-radius: 6px; font-weight: 600; }
+    .btn.primary { background: var(--primary); border-color: var(--primary); }
+    .btn.danger { background: var(--danger); border-color: var(--danger); }
+    .btn.ghost { background: transparent; border-color: var(--border); }
+    .input { width: 100%; padding: 7px 9px; border: 1px solid #2b3545; border-radius: 6px; background: var(--panel-2); color: var(--text); }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .space { margin-top: 8px; }
+    .feed { max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--panel-2); }
+    .bubble { padding: 8px 10px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); background: #141b2b; }
+    .me { background: #1f2b3d; border-color: var(--primary); }
+    .meta { font-size: 11px; color: var(--muted); }
+    .pill { padding: 3px 8px; border-radius: 999px; font-size: 11px; border: 1px solid #2b3545; }
+    .notice { color: #f19c9c; font-size: 13px; }
+    .section-title { font-size: 12px; letter-spacing: .04em; color: var(--muted); margin: 6px 0; text-transform: uppercase; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .dot.online { background: var(--success); box-shadow: 0 0 0 3px rgba(38,194,129,0.15); }
+    .dot.offline { background: #556070; }
+    @media (max-width: 1100px) { .page { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside class="card" id="left-col">
+      <div class="section-title">Profil</div>
+      <div id="profile-box">Kullanıcı yükleniyor...</div>
+
+      <div class="section-title" style="margin-top:6px;">Kullanıcı Ara</div>
+      <input id="user-search" class="input" placeholder="kullanıcı adı yaz...">
+      <div id="user-search-results" class="list" style="max-height:120px;"></div>
+
+      <div class="section-title">Gelen istekler</div>
+      <div class="row space">
+        <button id="btn-reload-requests" class="btn">Yenile</button>
+      </div>
+      <div id="dm-request-list" class="list" style="max-height:120px;"></div>
+
+      <div class="section-title">Yeni sohbet</div>
+      <div class="space">
+        <select id="new-chat-user" class="input"></select>
+        <label class="meta" style="display:block;margin-top:6px;">Grup üyeleri (en az 2 kişi)</label>
+        <select id="group-member-select" class="input" multiple size="5"></select>
+        <div class="row space">
+          <button id="btn-start-dm" class="btn primary">DM isteği gönder</button>
+          <button id="btn-create-group" class="btn">Grup oluştur</button>
+        </div>
+      </div>
+
+      <div class="section-title">Arkadaşlar</div>
+      <div id="dm-list" class="list"></div>
+
+      <div class="section-title">Gruplar</div>
+
+      <div class="section-title" id="group-manage-title" style="margin-top:10px; display:none;">Grup Yönetimi</div>
+      <div class="space" id="group-manage-box" style="display:none;">
+        <select id="group-manage-select" class="input"></select>
+        <input id="group-new-name" class="input space" placeholder="Yeni grup adı">
+        <div class="row space">
+          <input id="group-member-id" class="input" placeholder="Üye id">
+          <button id="btn-group-add" class="btn">Üye Ekle</button>
+          <button id="btn-group-remove" class="btn danger">Üye Çıkar</button>
+        </div>
+        <button id="btn-group-rename" class="btn">Grup Adını Değiştir</button>
+        <button id="btn-group-delete" class="btn danger space">Grubu Sil</button>
+      </div>
+
+      <div id="group-list" class="list"></div>
+
+      <div class="section-title">Topluluklar</div>
+      <div id="community-list" class="list"></div>
+    </aside>
+
+    <main class="card">
+      <div class="row" style="justify-content: space-between; align-items:flex-start;">
+        <div>
+          <div class="section-title">Sohbet</div>
+          <div id="chat-title" style="font-size:18px;font-weight:700;">Seçim yok</div>
+        </div>
+        <div class="row" style="gap:6px;">
+          <span id="chat-badge" class="pill">—</span>
+          <span id="ws-status" class="pill">WS</span>
+        </div>
+      </div>
+      <div id="chat-feed" class="feed"></div>
+      <div id="chat-notice" class="notice"></div>
+      <form id="message-form" class="space">
+        <textarea id="message-input" class="input" rows="3" placeholder="Mesajını yaz..."></textarea>
+        <div class="row space" style="justify-content: space-between;">
+          <span class="meta" id="edit-hint">300 sn içinde düzenleyebilirsin</span>
+          <button class="btn primary" type="submit">Gönder</button>
+        </div>
+      </form>
+    </main>
+
+    <aside class="card">
+      <div class="section-title">Tartışmalar</div>
+      <div class="row">
+        <input id="discussion-title" class="input" placeholder="Başlık (isteğe bağlı)">
+      </div>
+      <textarea id="discussion-body" class="input space" rows="3" placeholder="İçerik"></textarea>
+      <div class="row space">
+        <button id="btn-new-discussion" class="btn primary">Paylaş</button>
+        <button id="btn-load-more-discussion" class="btn">Daha fazla</button>
+        <button id="btn-load-older" class="btn">Daha eski mesajlar</button>
+      </div>
+      <div id="discussion-list" class="feed" style="max-height:220px;"></div>
+      <div class="section-title" style="margin-top:10px;">Arkadaş ekle (DM isteği)</div>
+      <div class="row">
+        <select id="friend-target" class="input"></select>
+        <button id="btn-add-friend" class="btn">Gönder</button>
+      </div>
+
+      <div class="section-title" style="margin-top:10px;">Bildirimler</div>
+      <div class="row">
+        <span class="pill" id="notify-badge">0</span>
+        <button id="btn-notify-reload" class="btn">Yenile</button>
+      </div>
+      <div id="notification-list" class="feed" style="max-height:180px;"></div>
+    </aside>
+  </div>
+
+  <script src="melt.js"></script>
+  <script src="connection.js"></script>
+  <script>
+    (() => {
+      const state = {
+        users: [],
+        chats: [],
+        history: {},
+        selectedUserId: null,
+        selectedChatId: null,
+        selectedChatType: null,
+        discussions: [],
+        discussionCursor: null,
+        sort: "hot",
+        dmRequests: [],
+        notifications: [],
+        notificationCursor: null,
+        unread: 0,
+        online: new Set(),
+        historyCursor: null,
+        historyCursors: {},
+        suspendAutoScroll: false,
+      };
+
+      const nodes = {
+        appNotice: null,
+        profileBox: document.getElementById("profile-box"),
+        newChatUser: document.getElementById("new-chat-user"),
+        groupMemberSelect: document.getElementById("group-member-select"),
+        friendTarget: document.getElementById("friend-target"),
+        userSearch: document.getElementById("user-search"),
+        userSearchResults: document.getElementById("user-search-results"),
+        btnStartDm: document.getElementById("btn-start-dm"),
+        btnCreateGroup: document.getElementById("btn-create-group"),
+        groupManageSelect: document.getElementById("group-manage-select"),
+        groupNewName: document.getElementById("group-new-name"),
+        groupMemberId: document.getElementById("group-member-id"),
+        btnGroupAdd: document.getElementById("btn-group-add"),
+        btnGroupRemove: document.getElementById("btn-group-remove"),
+        btnGroupRename: document.getElementById("btn-group-rename"),
+        btnGroupDelete: document.getElementById("btn-group-delete"),
+        btnAddFriend: document.getElementById("btn-add-friend"),
+        btnReloadRequests: document.getElementById("btn-reload-requests"),
+        dmRequestList: document.getElementById("dm-request-list"),
+        dmList: document.getElementById("dm-list"),
+        groupList: document.getElementById("group-list"),
+        communityList: document.getElementById("community-list"),
+        chatTitle: document.getElementById("chat-title"),
+        chatBadge: document.getElementById("chat-badge"),
+        chatFeed: document.getElementById("chat-feed"),
+        chatNotice: document.getElementById("chat-notice"),
+        messageForm: document.getElementById("message-form"),
+        messageInput: document.getElementById("message-input"),
+        discussionList: document.getElementById("discussion-list"),
+        discussionTitle: document.getElementById("discussion-title"),
+        discussionBody: document.getElementById("discussion-body"),
+        btnNewDiscussion: document.getElementById("btn-new-discussion"),
+        btnLoadMoreDiscussion: document.getElementById("btn-load-more-discussion"),
+        btnLoadOlder: document.getElementById("btn-load-older"),
+        notifyList: document.getElementById("notification-list"),
+        notifyBadge: document.getElementById("notify-badge"),
+        btnNotifyReload: document.getElementById("btn-notify-reload"),
+      };
+
+      function normalizeChatType(v) {
+        if (v === 1 || v === "1") return "DirectMessage";
+        if (v === 2 || v === "2") return "Group";
+        if (v === 3 || v === "3") return "Community";
+        return v || "Community";
+      }
+
+      function ensureHistory(chatId) {
+        if (!state.history[chatId]) state.history[chatId] = [];
+      }
+
+     function addMessage(chatId, message, fromSelf) {
+        ensureHistory(chatId);
+        const arr = state.history[chatId];
+        const idx = arr.findIndex((m) => m.id === message.id);
+        const normalized = {
+          id: message.id,
+          body: message.body,
+          created_at: message.created_at,
+          edited_at: message.edited_at || null,
+          deleted: !!message.deleted,
+          sender_id: message.sender_id,
+          from_self: fromSelf ?? message.sender_id === state.selectedUserId,
+        };
+        if (idx >= 0) arr[idx] = normalized; else arr.push(normalized);
+        arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        // keep last 200 messages per chat to avoid unbounded growth
+        if (arr.length > 200) {
+          arr.splice(0, arr.length - 200);
+        }
+        if (chatId === state.selectedChatId) renderMessages();
+      }
+
+      function renderProfile() {
+        const u = state.users.find((x) => x.id === state.selectedUserId);
+        if (!u) return;
+        const online = state.online?.has(u.id);
+        nodes.profileBox.innerHTML = `<span class="dot ${online ? 'online' : 'offline'}"></span>${u.login_username} (${online ? 'online' : 'offline'})`;
+      }
+
+      function showNotice(text) {
+        if (!nodes.appNotice) {
+          nodes.appNotice = document.createElement("div");
+          nodes.appNotice.style.color = "#f19c9c";
+          nodes.appNotice.style.margin = "6px 8px";
+          nodes.appNotice.style.fontSize = "13px";
+          document.body.prepend(nodes.appNotice);
+        }
+        nodes.appNotice.textContent = text || "";
+      }
+
+      function fillSelect(select, users) {
+        select.innerHTML = "";
+        users.forEach((u) => {
+          const opt = document.createElement("option");
+          opt.value = u.id;
+          opt.textContent = `${u.login_username}`;
+          select.appendChild(opt);
+        });
+      }
+
+      function renderLists() {
+        const users = state.users;
+        fillSelect(nodes.newChatUser, users.filter((u) => u.id !== state.selectedUserId));
+        fillSelect(nodes.friendTarget, users.filter((u) => u.id !== state.selectedUserId));
+        if (nodes.groupMemberSelect) {
+          fillSelect(nodes.groupMemberSelect, users.filter((u) => u.id !== state.selectedUserId));
+        }
+
+        // Arama sonuçları (basit client-side filter)
+        if (nodes.userSearch && nodes.userSearchResults) {
+          const q = nodes.userSearch.value?.trim().toLowerCase() || "";
+          const matches = q
+            ? users.filter((u) => u.login_username.toLowerCase().includes(q) || u.public_username.toLowerCase().includes(q))
+            : users.slice(0, 10);
+          nodes.userSearchResults.innerHTML = matches.length
+            ? matches
+                .slice(0, 20)
+                .map((u) => {
+                  const online = state.online?.has(u.id);
+                  return `<button class="btn ghost" data-user="${u.id}"><span class="dot ${online ? 'online' : 'offline'}"></span>${u.login_username} (@${u.public_username})</button>`;
+                })
+                .join("")
+            : "<div class='meta'>Sonuç yok</div>";
+        }
+
+        const dm = state.chats.find((c) => normalizeChatType(c.chat_type) === "DirectMessage");
+        if (dm) {
+          const memberIds = state.chatMembers
+            .filter((m) => m.chat_id == dm.id)
+            .map((m) => m.user_id);
+          const otherUserId = memberIds.find((id) => id !== state.selectedUserId) || memberIds[0] || "";
+          const otherUser = state.users.find((u) => u.id === otherUserId);
+          const isOnline = state.online?.has(otherUserId);
+          const label = otherUser ? `${otherUser.login_username}${isOnline ? " • online" : ""}` : `DM ${dm.id.slice(0,6)}`;
+          nodes.dmList.innerHTML = `<button class="btn" data-chat="${dm.id}" data-type="DirectMessage"><span class="dot ${isOnline ? 'online' : 'offline'}"></span>${label}</button>`;
+        } else {
+          nodes.dmList.innerHTML = "";
+        }
+
+        const groups = state.chats.filter((c) => normalizeChatType(c.chat_type) === "Group");
+        if (nodes.groupManageSelect) {
+          nodes.groupManageSelect.innerHTML = `<option value="">Grup seç</option>` + groups.map((c) => {
+            const label = c.label || `Grup ${c.id.slice(0,6)}`;
+            return `<option value="${c.id}">${label}</option>`;
+          }).join("");
+        }
+        nodes.groupList.innerHTML = groups.map((c) => {
+          const label = c.label || `Grup ${c.id.slice(0,6)}`;
+          return `<button class="btn" data-chat="${c.id}" data-type="Group">${label}</button>`;
+        }).join("");
+
+        const comms = state.chats.filter((c) => normalizeChatType(c.chat_type) === "Community");
+        // Sabit toplulukları öncele
+        const ordered = ["Genel", "Programlama", "Yapay Zeka"]
+          .map((name) => comms.find((c) => (c.label || "").toLowerCase() === name.toLowerCase()))
+          .filter(Boolean);
+        const remaining = comms.filter((c) => !ordered.includes(c));
+        const final = [...ordered, ...remaining];
+        nodes.communityList.innerHTML = final.map((c) => `<button class="btn" data-chat="${c.id}" data-type="Community">${c.label || 'Topluluk'}</button>`).join("");
+
+        if (nodes.dmRequestList) {
+          nodes.dmRequestList.innerHTML = state.dmRequests.length
+            ? state.dmRequests.map((r) => {
+                const fromUser = state.users.find((u) => u.id === r.from_user_id);
+                const label = fromUser
+                  ? `${fromUser.login_username}`
+                  : r.from_user_id.slice(0, 8);
+                return `<div class="bubble"><div>Gönderen: ${label}</div><div class="meta">İstek #${r.id.slice(0,8)}</div><div class="row"><button class="btn primary" data-accept="${r.id}">Kabul</button><button class="btn danger" data-reject="${r.id}">Reddet</button></div></div>`;
+              }).join("")
+            : "<div class='meta'>İstek yok</div>";
+        }
+
+        if (nodes.notifyList) {
+          nodes.notifyList.innerHTML = state.notifications.length
+            ? state.notifications.map((n) => `<div class="bubble"><div><strong>${n.kind}</strong> — ${n.body}</div><div class="meta">${new Date(n.created_at).toLocaleString('tr-TR')}</div></div>`).join("")
+            : "<div class='meta'>Bildirim yok</div>";
+        }
+        if (nodes.notifyBadge) {
+          nodes.notifyBadge.textContent = state.unread.toString();
+        }
+      }
+
+      function setChatHeader(chat) {
+        nodes.chatTitle.textContent = chat ? (chat.label || chat.id) : "Seçim yok";
+        nodes.chatBadge.textContent = chat ? normalizeChatType(chat.chat_type) : "—";
+        const showGroupControls = chat && normalizeChatType(chat.chat_type) === "Group";
+        if (document.getElementById("group-manage-box")) {
+          document.getElementById("group-manage-box").style.display = showGroupControls ? "block" : "none";
+        }
+        if (document.getElementById("group-manage-title")) {
+          document.getElementById("group-manage-title").style.display = showGroupControls ? "block" : "none";
+        }
+      }
+
+      function renderMessages() {
+        const arr = state.history[state.selectedChatId] || [];
+        nodes.chatFeed.innerHTML = arr.map((m) => {
+          return `<div class="bubble ${m.from_self ? 'me' : ''}">`+
+                 `<div>${m.deleted ? 'Mesaj silindi' : Melt.highlightMentions(m.body || '')}</div>`+
+                 `<div class="meta">${new Date(m.created_at).toLocaleTimeString('tr-TR')} ${m.edited_at ? '(düzenlendi)' : ''}</div>`+
+                 `</div>`;
+        }).join("");
+        if (!state.suspendAutoScroll) {
+          nodes.chatFeed.scrollTop = nodes.chatFeed.scrollHeight;
+        }
+      }
+
+      function switchChat(chatId, chatType) {
+        state.selectedChatId = chatId;
+        state.selectedChatType = chatType;
+        const chat = state.chats.find((c) => c.id === chatId);
+        ensureHistory(chatId);
+        if (chatType === "Group" && nodes.groupManageSelect) {
+          nodes.groupManageSelect.value = chatId;
+        }
+        setChatHeader(chat);
+        renderMessages();
+        state.historyCursor = state.historyCursors[chatId] || null;
+        if (nodes.btnLoadOlder) nodes.btnLoadOlder.disabled = true;
+        loadHistory(chatId, chatType);
+      }
+
+      async function loadHistory(chatId, chatType, cursor) {
+        if (!chatId) return;
+        const params = new URLSearchParams({ chat_id: chatId, chat_type: chatType });
+        if (cursor) params.set("cursor", cursor);
+        const preserve = Boolean(cursor);
+        let prevBottom = 0;
+        if (preserve) {
+          state.suspendAutoScroll = true;
+          prevBottom = nodes.chatFeed.scrollHeight - nodes.chatFeed.scrollTop;
+        }
+        const res = await Melt.api(`/api/chats/message/history?${params.toString()}`, 'GET');
+        if (!res.ok || !res.body?.ok) { state.suspendAutoScroll = false; return; }
+        const page = res.body.data || { items: [], next_cursor: null };
+        const messages = page.items || [];
+        state.historyCursor = page.next_cursor || null;
+        state.historyCursors[chatId] = state.historyCursor;
+        messages.forEach((m) => addMessage(chatId, m, m.sender_id === state.selectedUserId));
+        state.suspendAutoScroll = false;
+        if (preserve) {
+          const feed = nodes.chatFeed;
+          feed.scrollTop = Math.max(0, feed.scrollHeight - prevBottom);
+        }
+        if (nodes.btnLoadOlder) nodes.btnLoadOlder.disabled = !state.historyCursor;
+        return page.next_cursor;
+      }
+
+      async function sendMessage(e) {
+        e.preventDefault();
+        nodes.chatNotice.textContent = "";
+        const body = nodes.messageInput.value.trim();
+        if (!state.selectedUserId) {
+          nodes.chatNotice.textContent = "Önce kullanıcı seçin/oturum açın";
+          return;
+        }
+        if (!body || !state.selectedChatId) {
+          nodes.chatNotice.textContent = "Mesaj veya sohbet yok";
+          return;
+        }
+        const res = await Connection.send_dm({
+          user_id: state.selectedUserId,
+          chat_id: state.selectedChatId,
+          chat_type: state.selectedChatType,
+          body,
+        });
+        if (!res.ok || !res.body?.ok) {
+          nodes.chatNotice.textContent = res.body?.message || "Gönderilemedi";
+          return;
+        }
+        addMessage(state.selectedChatId, res.body.data, true);
+        nodes.messageInput.value = "";
+      }
+
+      async function refreshHistory() {
+        if (!state.selectedChatId) return;
+        if (!state.historyCursor) { Melt.toast("Daha eski mesaj yok"); return; }
+        await loadHistory(state.selectedChatId, state.selectedChatType, state.historyCursor);
+      }
+
+      async function requestDm(toUserId) {
+        if (!state.selectedUserId) { Melt.toast("Kullanıcı yok"); return; }
+        if (!toUserId) { Melt.toast("Hedef seçin"); return; }
+        const payload = { from_user_id: state.selectedUserId, to_user_id: toUserId };
+        const res = await fetch('/api/chats/dm-request', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        const body = await res.json().catch(() => ({ ok:false, message:'hata' }));
+        if (!res.ok || !body.ok) { Melt.toast(body.message || 'DM isteği başarısız'); return; }
+        Melt.toast('DM isteği gönderildi');
+        await refreshDmRequests();
+      }
+
+      async function createGroup() {
+        if (!state.selectedUserId) { Melt.toast("Önce kullanıcı"); return; }
+        const selected = Array.from(nodes.groupMemberSelect?.selectedOptions || []).map((o) => o.value);
+        if (selected.length < 2) { Melt.toast("En az 2 üye seç (kurucu +2 kuralı)"); return; }
+        const res = await fetch('/api/chats/group', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: state.selectedUserId, member_ids: selected })
+        });
+        const body = await res.json().catch(() => ({ ok:false, message:'hata' }));
+        if (!res.ok || !body.ok) { Melt.toast(body.message || 'Grup oluşturulamadı'); return; }
+        const chatId = body.data?.chat_id;
+        if (chatId) {
+          state.chats.push({ id: chatId, chat_type: "Group" });
+          // bootstrap already returns members; quick refresh to sync
+          await loadBootstrap();
+          Melt.toast("Grup oluşturuldu");
+        }
+      }
+
+      async function renameGroup() {
+        const chatId = nodes.groupManageSelect.value;
+        const name = nodes.groupNewName.value.trim();
+        if (!chatId || !name) { Melt.toast("Grup ve yeni ad gir"); return; }
+        const res = await fetch('/api/chats/group/rename', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: state.selectedUserId, chat_id: chatId, name })
+        });
+        const body = await res.json().catch(() => ({ ok:false, message:'hata' }));
+        if (!res.ok || !body.ok) { Melt.toast(body.message || 'Yeniden adlandırılamadı'); return; }
+        const chat = state.chats.find((c) => c.id === chatId);
+        if (chat) chat.label = name;
+        renderLists();
+        Melt.toast("Grup adı güncellendi");
+      }
+
+      async function addGroupMember(targetOverride) {
+        const chatId = nodes.groupManageSelect.value;
+        const targetId = (targetOverride || nodes.groupMemberId.value || "").trim();
+        if (!chatId || !targetId) { Melt.toast("Grup ve kullanıcı gir"); return; }
+        const res = await fetch('/api/chats/group/member/add', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: state.selectedUserId, chat_id: chatId, target_user_id: targetId })
+        });
+        const body = await res.json().catch(() => ({ ok:false, message:'hata' }));
+        if (!res.ok || !body.ok) { Melt.toast(body.message || 'Üye eklenemedi'); return; }
+        await loadBootstrap();
+        Melt.toast("Üye eklendi");
+      }
+
+      async function removeGroupMember() {
+        const chatId = nodes.groupManageSelect.value;
+        const targetId = nodes.groupMemberId.value.trim();
+        if (!chatId || !targetId) { Melt.toast("Grup ve kullanıcı gir"); return; }
+        const res = await fetch('/api/chats/group/member/remove', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: state.selectedUserId, chat_id: chatId, target_user_id: targetId })
+        });
+        const body = await res.json().catch(() => ({ ok:false, message:'hata' }));
+        if (!res.ok || !body.ok) { Melt.toast(body.message || 'Üye çıkarılamadı'); return; }
+        await loadBootstrap();
+        Melt.toast("Üye çıkarıldı");
+      }
+
+      async function deleteGroup() {
+        const chatId = nodes.groupManageSelect.value;
+        if (!chatId) { Melt.toast("Silinecek grup seç"); return; }
+        if (!confirm("Grubu silmek istediğine emin misin?")) return;
+        const res = await fetch('/api/chats/group/delete', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: state.selectedUserId, chat_id: chatId })
+        });
+        const body = await res.json().catch(() => ({ ok:false, message:'hata' }));
+        if (!res.ok || !body.ok) { Melt.toast(body.message || 'Grup silinemedi'); return; }
+        // temizle
+        state.chats = state.chats.filter((c) => c.id !== chatId);
+        state.chatMembers = state.chatMembers.filter((m) => m.chat_id !== chatId);
+        delete state.history[chatId];
+        renderLists();
+        if (state.selectedChatId === chatId) {
+          state.selectedChatId = null;
+          state.selectedChatType = null;
+          nodes.chatFeed.innerHTML = "";
+          nodes.chatTitle.textContent = "Seçim yok";
+        }
+        Melt.toast("Grup silindi");
+      }
+
+      async function loadBootstrap() {
+        const res = await Melt.api('/api/bootstrap/state', 'GET');
+        if (res.status === 401 || res.status === 403) { window.location.href = '/index.html'; return; }
+        if (!res.ok || !res.body?.ok) { showNotice('Bootstrap alınamadı'); return; }
+        const data = res.body.data || {};
+        state.users = data.users || [];
+        state.chats = (data.chats || []).map((c) => ({ ...c, chat_type: normalizeChatType(c.chat_type) }));
+        state.chatMembers = data.chat_members || [];
+        state.selectedUserId = data.current_user_id || (state.users[0]?.id ?? null);
+        if (!state.selectedUserId && state.users.length === 0) {
+          showNotice("Kullanıcı yok, önce kayıt/ giriş yapın.");
+          return;
+        }
+        if (!state.chats.length) {
+          const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+          state.chats.push({ id, chat_type: "Community", label: "Topluluk" });
+        }
+        renderProfile();
+        renderLists();
+        const firstChat = state.chats.find((c) => normalizeChatType(c.chat_type) === 'Community') || state.chats[0];
+        if (firstChat) switchChat(firstChat.id, normalizeChatType(firstChat.chat_type));
+        await refreshDmRequests();
+        await refreshPresence();
+      }
+
+      async function refreshDiscussion(loadMore=false) {
+        const params = new URLSearchParams({ sort: state.sort });
+        if (loadMore && state.discussionCursor) params.set('cursor', state.discussionCursor);
+        if (state.selectedChatId) params.set('thread_id', state.selectedChatId);
+        const res = await Melt.api(`/api/discussion/list?${params.toString()}`, 'GET');
+        if (!res.ok || !res.body?.ok) return;
+        const payload = res.body.data || { items: [], next_cursor: null };
+        if (loadMore) state.discussions.push(...payload.items); else state.discussions = payload.items;
+        state.discussionCursor = payload.next_cursor || null;
+        nodes.discussionList.innerHTML = state.discussions.map((d) => `<div class="bubble"><strong>${d.title || 'Başlık'}</strong><div>${Melt.highlightMentions(d.body || '')}</div><div class="meta">${new Date(d.created_at).toLocaleString('tr-TR')}</div></div>`).join('');
+      }
+
+      async function refreshDmRequests() {
+        const res = await Melt.api('/api/chats/dm-request/list', 'GET');
+        if (res.status === 401 || res.status === 403) return;
+        if (!res.ok || !res.body?.ok) return;
+        state.dmRequests = res.body.data || [];
+        renderLists();
+      }
+
+      async function refreshNotifications(loadMore=false) {
+        if (!state.selectedUserId) return;
+        const params = new URLSearchParams({
+          user_id: state.selectedUserId,
+          limit: "50",
+        });
+        if (loadMore && state.notificationCursor) params.set("cursor", state.notificationCursor);
+        const res = await Melt.api(`/api/notifications/list?${params.toString()}`, 'GET');
+        if (!res.ok || !res.body?.ok) return;
+        const data = res.body.data || { items: [], next_cursor: null };
+        state.notifications = loadMore ? [...state.notifications, ...(data.items || [])] : (data.items || []);
+        state.notificationCursor = data.next_cursor || null;
+
+        const unreadRes = await Melt.api(`/api/notifications/unread?user_id=${state.selectedUserId}`, 'GET');
+        if (unreadRes.ok && unreadRes.body?.ok) {
+          state.unread = unreadRes.body.data?.unread ?? state.unread;
+        }
+        renderLists();
+      }
+
+      async function refreshPresence() {
+        if (!state.users.length) return;
+        const params = new URLSearchParams();
+        state.users.forEach((u) => params.append("user_ids", u.id));
+        const res = await Melt.api(`/api/presence/online?${params.toString()}`, "GET");
+        if (!res.ok || !res.body?.ok) return;
+        const onlineIds = res.body.data?.online_user_ids || [];
+        state.online = new Set(onlineIds);
+        renderLists();
+      }
+
+      async function decideRequest(requestId, action) {
+        if (!state.selectedUserId) { Melt.toast("Önce kullanıcı"); return; }
+        const path = action === 'accept' ? '/api/chats/dm-request/accept' : '/api/chats/dm-request/reject';
+        const res = await fetch(path, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: state.selectedUserId, request_id: requestId })
+        });
+        const body = await res.json().catch(() => ({ ok:false, message:'hata' }));
+        if (!res.ok || !body.ok) { Melt.toast(body.message || 'İşlem başarısız'); return; }
+        await refreshDmRequests();
+        await loadBootstrap();
+      }
+
+      async function postDiscussion() {
+        const body = nodes.discussionBody.value.trim();
+        const title = nodes.discussionTitle.value.trim();
+        if (!state.selectedUserId) { Melt.toast('Önce kullanıcı'); return; }
+        if (!body) { Melt.toast('Boş içerik'); return; }
+        const res = await Connection.discussion_reply({ user_id: state.selectedUserId, thread_id: null, parent_id: null, title, body });
+        if (!res.ok || !res.body?.ok) { Melt.toast(res.body?.message || 'Gönderilemedi'); return; }
+        nodes.discussionTitle.value = '';
+        nodes.discussionBody.value = '';
+        await refreshDiscussion();
+      }
+
+      function bindEvents() {
+        nodes.messageForm.addEventListener("submit", sendMessage);
+        nodes.btnStartDm.addEventListener("click", () => requestDm(nodes.newChatUser.value));
+        nodes.btnCreateGroup.addEventListener("click", createGroup);
+        nodes.btnGroupRename.addEventListener("click", renameGroup);
+        nodes.btnGroupAdd.addEventListener("click", addGroupMember);
+        nodes.btnGroupRemove.addEventListener("click", removeGroupMember);
+        nodes.btnGroupDelete.addEventListener("click", deleteGroup);
+        nodes.btnAddFriend.addEventListener("click", () => requestDm(nodes.friendTarget.value));
+        nodes.btnReloadRequests?.addEventListener("click", refreshDmRequests);
+        nodes.btnNotifyReload?.addEventListener("click", () => refreshNotifications(false));
+        nodes.userSearch?.addEventListener("input", renderLists);
+        nodes.userSearchResults?.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-user]");
+          if (!btn) return;
+          const uid = btn.dataset.user;
+          const groupVisible = document.getElementById("group-manage-box")?.style.display !== "none";
+          const selectedGroup = nodes.groupManageSelect?.value;
+          if (groupVisible && selectedGroup) {
+            addGroupMember(uid);
+            return;
+          }
+          if (nodes.newChatUser) nodes.newChatUser.value = uid;
+          if (nodes.friendTarget) nodes.friendTarget.value = uid;
+          if (nodes.groupMemberId) nodes.groupMemberId.value = uid;
+          Melt.toast("Kullanıcı seçildi");
+        });
+        nodes.dmRequestList.addEventListener("click", (e) => {
+          const acc = e.target.closest("[data-accept]");
+          const rej = e.target.closest("[data-reject]");
+          if (acc) decideRequest(acc.dataset.accept, "accept");
+          if (rej) decideRequest(rej.dataset.reject, "reject");
+        });
+        [nodes.dmList, nodes.groupList, nodes.communityList]
+          .filter(Boolean)
+          .forEach((list) =>
+            list.addEventListener("click", (e) => {
+              const btn = e.target.closest("[data-chat]");
+              if (!btn) return;
+              switchChat(btn.dataset.chat, btn.dataset.type);
+            })
+          );
+        nodes.btnNewDiscussion.addEventListener("click", postDiscussion);
+        nodes.btnLoadMoreDiscussion.addEventListener("click", () => refreshDiscussion(true));
+        nodes.btnLoadOlder?.addEventListener("click", refreshHistory);
+      }
+
+      function registerWs() {
+        Connection.on('chat.message', (payload) => {
+          if (!payload || !payload.chat_id || !payload.message) return;
+          addMessage(payload.chat_id, payload.message, payload.message.sender_id === state.selectedUserId);
+        });
+        Connection.on('notification.created', async (payload) => {
+          if (payload?.unread_count !== undefined && payload?.user_id === state.selectedUserId) {
+            state.unread = payload.unread_count;
+            renderLists();
+          }
+          await Promise.all([refreshDmRequests(), refreshNotifications(false)]);
+        });
+        Connection.on('notification.unread', (payload) => {
+          if (payload?.user_id !== state.selectedUserId) return;
+          state.unread = payload.unread ?? state.unread;
+          renderLists();
+        });
+        Connection.on('admin.event', async (payload) => {
+          if (!payload || !payload.action) return;
+          if (payload.action.startsWith('dm.request.')) {
+            await Promise.all([refreshDmRequests(), loadBootstrap()]);
+          }
+        });
+        Connection.on('discussion.post', async () => { await refreshDiscussion(); });
+        Connection.on('presence.state', (payload) => {
+          if (!payload || !payload.user_id) return;
+          if (!state.online || !(state.online instanceof Set)) state.online = new Set();
+          if (payload.online) state.online.add(payload.user_id); else state.online.delete(payload.user_id);
+          renderLists();
+        });
+      }
+
+      async function init() {
+        bindEvents();
+        registerWs();
+        Connection.connect();
+        Connection.attachStatus("ws-status");
+        await loadBootstrap();
+        await Promise.all([refreshDiscussion(), refreshNotifications(false), refreshPresence()]);
+        // periyodik presence tazele
+        setInterval(refreshPresence, 20000);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

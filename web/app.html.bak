@@ -1,0 +1,1136 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Novastrum | Sohbet</title>
+  <link rel="stylesheet" href="melt.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .consumer-app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 270px minmax(0, 1fr) 320px;
+      gap: 0;
+    }
+
+    .left-rail {
+      border-right: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(7, 15, 28, 0.96), rgba(6, 13, 24, 0.98));
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 14px;
+      background: rgba(11, 23, 39, 0.9);
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(140deg, #2d8cff, #20d89f);
+      color: #04101d;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      font-size: 0.86rem;
+    }
+
+    .profile-card {
+      border: 1px solid var(--line-soft);
+      border-radius: 14px;
+      padding: 11px;
+      display: grid;
+      gap: 10px;
+      background: rgba(10, 21, 36, 0.9);
+    }
+
+    .profile-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(140deg, #2d8cff, #5fa9ff);
+      color: #04111f;
+      display: grid;
+      place-items: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .rail-nav {
+      border: 1px solid var(--line-soft);
+      border-radius: 14px;
+      background: rgba(10, 20, 36, 0.86);
+      padding: 8px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .rail-nav .nav-item {
+      border-radius: 10px;
+      padding: 9px 10px;
+      justify-content: flex-start;
+      gap: 8px;
+    }
+
+    .chat-stack {
+      border: 1px solid var(--line-soft);
+      border-radius: 14px;
+      background: rgba(10, 20, 36, 0.86);
+      padding: 9px;
+      display: grid;
+      gap: 6px;
+      max-height: 44vh;
+      overflow: auto;
+    }
+
+    .chat-item {
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      padding: 9px;
+      background: rgba(8, 17, 31, 0.8);
+      display: grid;
+      gap: 2px;
+      color: var(--text-main);
+    }
+
+    .chat-item.active {
+      border-color: rgba(45, 140, 255, 0.48);
+      background: rgba(45, 140, 255, 0.16);
+    }
+
+    .chat-item small {
+      color: var(--text-muted);
+      font-size: 0.73rem;
+    }
+
+    .workspace {
+      padding: 16px;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      background: radial-gradient(70rem 30rem at 50% -10%, rgba(45, 140, 255, 0.12), transparent 55%);
+    }
+
+    .surface {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(176deg, rgba(12, 24, 41, 0.95), rgba(7, 15, 27, 0.96));
+      overflow: hidden;
+      display: grid;
+      gap: 0;
+    }
+
+    .surface-head {
+      border-bottom: 1px solid var(--line-soft);
+      padding: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .surface-body {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .message-feed {
+      display: grid;
+      gap: 10px;
+      max-height: 46vh;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .msg-row {
+      display: flex;
+    }
+
+    .msg-row.you {
+      justify-content: flex-end;
+    }
+
+    .bubble {
+      max-width: 78%;
+      border: 1px solid var(--line-soft);
+      border-radius: 13px;
+      padding: 9px 10px;
+      background: rgba(9, 19, 33, 0.92);
+      display: grid;
+      gap: 5px;
+    }
+
+    .msg-row.you .bubble {
+      background: linear-gradient(140deg, rgba(45, 140, 255, 0.2), rgba(45, 140, 255, 0.1));
+      border-color: rgba(45, 140, 255, 0.4);
+    }
+
+    .bubble.deleted {
+      background: rgba(255, 105, 97, 0.06);
+      border-color: rgba(255, 105, 97, 0.4);
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .bubble-meta {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .tag {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(45, 140, 255, 0.16);
+      color: var(--text-main);
+      font-size: 0.7rem;
+      letter-spacing: 0.02em;
+    }
+
+    .composer {
+      display: grid;
+      gap: 8px;
+    }
+
+    .composer textarea {
+      min-height: 88px;
+    }
+
+    .right-rail {
+      border-left: 1px solid var(--line);
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      background: linear-gradient(180deg, rgba(7, 15, 28, 0.95), rgba(5, 11, 20, 0.98));
+    }
+
+    .insight-card {
+      border: 1px solid var(--line-soft);
+      border-radius: 14px;
+      background: rgba(10, 20, 35, 0.88);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .discussion-feed,
+    .notification-feed {
+      display: grid;
+      gap: 9px;
+      max-height: 54vh;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .discussion-card {
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(9, 19, 34, 0.9);
+      display: grid;
+      gap: 8px;
+    }
+
+    .discussion-title {
+      margin: 0;
+      font-size: 0.95rem;
+      line-height: 1.3;
+    }
+
+    .vote-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chip-btn {
+      border: 1px solid var(--line-soft);
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: rgba(10, 20, 35, 0.9);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .chip-btn.active {
+      color: var(--text-main);
+      border-color: rgba(45, 140, 255, 0.52);
+      background: rgba(45, 140, 255, 0.14);
+    }
+
+    .bubble-actions {
+      gap: 6px;
+      justify-content: flex-end;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 1200px) {
+      .consumer-app {
+        grid-template-columns: 250px minmax(0, 1fr);
+      }
+
+      .right-rail {
+        display: none;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .consumer-app {
+        grid-template-columns: 1fr;
+      }
+
+      .left-rail {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="consumer-app">
+    <aside class="left-rail">
+      <div class="brand">
+        <div class="brand-mark">NV</div>
+        <div>
+          <strong>Novastrum</strong>
+          <p class="subtitle" style="margin: 1px 0 0;">Canli topluluk alani</p>
+        </div>
+      </div>
+
+      <a class="button button-primary" href="/App-Fixed.html" style="width:100%;">Yeni arayuz (deneme)</a>
+
+      <section class="profile-card">
+        <div class="profile-head">
+          <div class="row">
+            <div class="avatar" id="profile-avatar">NA</div>
+            <div>
+              <strong id="profile-name">Misafir</strong>
+              <p class="subtitle" id="profile-status" style="margin: 1px 0 0;">Hazirlaniyor...</p>
+            </div>
+          </div>
+          <span class="badge badge-green">Cevrimici</span>
+        </div>
+        <p class="subtitle presence-status" id="presence-status" style="margin: 4px 0 0;">WebSocket bağlantısı bekleniyor...</p>
+        <div class="row-wrap">
+          <button class="button button-soft" id="logout-current">Cikis Yap</button>
+          <button class="button button-danger" id="logout-all">Tum Cihazlardan Cik</button>
+        </div>
+      </section>
+
+      <nav class="rail-nav" id="main-nav">
+        <button class="nav-item active" data-view="chat"><i data-lucide="messages-square"></i> Sohbet</button>
+        <button class="nav-item" data-view="discussion"><i data-lucide="compass"></i> Kesfet</button>
+        <button class="nav-item" data-view="notifications"><i data-lucide="bell"></i> Bildirimler <span class="badge badge-blue" id="unread-badge">0</span></button>
+      </nav>
+
+      <section class="sidebar-group">
+        <p class="sidebar-title">Konusmalar</p>
+        <div class="chat-stack" id="chat-list"></div>
+      </section>
+
+      <a class="button button-soft hidden" id="admin-shortcut" href="/admin.html">Yonetici Paneli</a>
+    </aside>
+
+    <main class="workspace">
+      <section class="surface" id="chat-view">
+        <div class="surface-head">
+          <div>
+            <strong id="chat-title">Sohbet</strong>
+            <p class="subtitle" id="chat-subtitle" style="margin: 2px 0 0;">Baglaniyor...</p>
+          </div>
+          <span class="badge badge-blue" id="chat-badge">Topluluk</span>
+        </div>
+
+        <div class="surface-body">
+          <div class="message-feed" id="message-feed"></div>
+
+          <form class="composer" id="message-form">
+            <textarea class="textarea" id="message-input" placeholder="Mesajini yaz..."></textarea>
+            <div class="row-wrap" style="justify-content: space-between; align-items: center;">
+              <label class="file-chip">
+                <i data-lucide="paperclip"></i>
+                <span>Dosya Ekle</span>
+                <input id="file-input" type="file" hidden>
+              </label>
+              <span id="file-status" class="subtitle" style="margin: 0;"></span>
+              <button class="button button-primary" type="submit">Gonder</button>
+            </div>
+          </form>
+
+          <div id="message-notice" class="notice hidden"></div>
+        </div>
+      </section>
+
+      <section class="surface hidden" id="discussion-view">
+        <div class="surface-head">
+          <div>
+            <strong>Toplulukta Kesfet</strong>
+            <p class="subtitle" style="margin: 2px 0 0;">Sorular, yanitlar ve fikirler</p>
+          </div>
+          <div class="row-wrap" id="discussion-sorts">
+            <button class="chip-btn active" data-sort="hot">Gundem</button>
+            <button class="chip-btn" data-sort="top">En Begenilen</button>
+            <button class="chip-btn" data-sort="new">Yeni</button>
+          </div>
+        </div>
+
+        <div class="surface-body">
+          <form class="grid" id="discussion-form" style="gap: 8px;">
+            <input class="input" id="discussion-title" placeholder="Baslik">
+            <textarea class="textarea" id="discussion-body" rows="3" placeholder="Dusunceni paylas..."></textarea>
+            <button class="button button-soft" type="submit">Paylas</button>
+          </form>
+
+          <div class="discussion-feed" id="discussion-list"></div>
+          <div id="discussion-notice" class="notice hidden"></div>
+        </div>
+      </section>
+
+      <section class="surface hidden" id="notifications-view">
+        <div class="surface-head">
+          <div>
+            <strong>Bildirimler</strong>
+            <p class="subtitle" style="margin: 2px 0 0;">Kacirdigin gelismeler burada</p>
+          </div>
+          <div class="row-wrap">
+            <button class="button button-soft" id="reload-notifications">Yenile</button>
+            <button class="button button-soft" id="mute-community">Toplulugu 30 dk sustur</button>
+          </div>
+        </div>
+
+        <div class="surface-body">
+          <div class="notification-feed" id="notification-list"></div>
+          <div id="notification-notice" class="notice hidden"></div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="right-rail">
+      <section class="insight-card">
+        <p class="sidebar-title">Bugunun Ozeti</p>
+        <div class="row" style="justify-content: space-between;"><span class="subtitle" style="margin:0;">Sohbet odasi</span><strong id="insight-chat-count">0</strong></div>
+        <div class="row" style="justify-content: space-between;"><span class="subtitle" style="margin:0;">Topluluk basligi</span><strong id="insight-post-count">0</strong></div>
+        <div class="row" style="justify-content: space-between;"><span class="subtitle" style="margin:0;">Bildirim</span><strong id="insight-notify-count">0</strong></div>
+      </section>
+
+      <section class="insight-card">
+        <p class="sidebar-title">Hizli Notlar</p>
+        <p class="subtitle" style="margin:0;">Sohbetlerde @kullanici yazarak kisi etiketleyebilirsin.</p>
+        <p class="subtitle" style="margin:0;">Kesfet sekmesinden yeni konu acabilir veya oy verebilirsin.</p>
+        <p class="subtitle" style="margin:0;">Bildirimleri istedigin zaman sessize alabilirsin.</p>
+      </section>
+    </aside>
+  </div>
+
+  <script src="melt.js"></script>
+  <script src="connection.js"></script>
+  <script>
+    const state = {
+      users: [],
+      chats: [],
+      selectedUserId: null,
+      selectedChatId: null,
+      selectedChatType: "Community",
+      selectedChatLabel: "Sohbet",
+      activeView: "chat",
+      sort: "hot",
+      history: {},
+      discussionCount: 0,
+      notificationCount: 0,
+      discussionCursor: null,
+      notificationCursor: null
+    };
+
+    function statusLabel(statusText) {
+      const key = String(statusText || "").toLowerCase();
+      if (key === "active") return "Hesap aktif";
+      if (key === "pending") return "Onay bekliyor";
+      if (key === "suspended") return "Yazma kisitli";
+      if (key === "banned") return "Hesap kapali";
+      return "Durum bilinmiyor";
+    }
+
+    function chatMeta(chat, index, counters) {
+      if (chat.chat_type === "Community") {
+        return {
+          label: "Topluluk Meydani",
+          subtitle: "Herkese acik sohbet",
+          badge: "Topluluk"
+        };
+      }
+
+      if (chat.chat_type === "Group") {
+        counters.group += 1;
+        return {
+          label: `Grup ${counters.group}`,
+          subtitle: "Ortak ilgi odasi",
+          badge: "Grup"
+        };
+      }
+
+      counters.dm += 1;
+      return {
+        label: `Ozel Sohbet ${counters.dm}`,
+        subtitle: "Bire bir mesaj",
+        badge: "Ozel"
+      };
+    }
+
+    function currentUser() {
+      return state.users.find((user) => user.id === state.selectedUserId) || null;
+    }
+
+    function currentChat() {
+      return state.chats.find((chat) => chat.id === state.selectedChatId) || null;
+    }
+
+    function updateProfileCard() {
+      const user = currentUser();
+      if (!user) return;
+
+      document.getElementById("profile-name").textContent = user.login_username;
+      document.getElementById("profile-status").textContent = statusLabel(user.status);
+
+      const initials = user.login_username.slice(0, 2).toUpperCase();
+      document.getElementById("profile-avatar").textContent = initials;
+
+      const adminShortcut = document.getElementById("admin-shortcut");
+      adminShortcut.classList.toggle("hidden", user.login_username !== "admin");
+    }
+
+    function ensureChatHistory(chatId, label) {
+      if (!state.history[chatId]) {
+        state.history[chatId] = [
+          {
+            id: `welcome-${chatId}`,
+            body: `${label} odasina hos geldin.`,
+            created_at: new Date().toISOString(),
+            edited_at: null,
+            deleted: false,
+            from_self: false,
+            kind: "system"
+          }
+        ];
+      }
+    }
+
+    function addMessageToHistory(chatId, message, fromSelf) {
+      if (!chatId || !message || !message.id) return;
+
+      const history = state.history[chatId] || [];
+      const existing = history.find((item) => item.id === message.id);
+      const inferredFromSelf = typeof fromSelf === "boolean"
+        ? fromSelf
+        : message.sender_id === state.selectedUserId;
+
+      const normalized = {
+        id: message.id,
+        body: message.body,
+        created_at: message.created_at,
+        edited_at: message.edited_at || null,
+        deleted: Boolean(message.deleted),
+        from_self: Boolean(inferredFromSelf),
+        sender_id: message.sender_id,
+        kind: "message"
+      };
+
+      if (existing) {
+        Object.assign(existing, normalized);
+      } else {
+        history.push(normalized);
+      }
+
+      state.history[chatId] = history;
+
+      if (chatId === state.selectedChatId) {
+        renderMessages();
+      }
+    }
+
+    function renderChatList() {
+      const root = document.getElementById("chat-list");
+      root.innerHTML = "";
+
+      const counters = { dm: 0, group: 0 };
+      state.chats.forEach((chat, index) => {
+        const meta = chatMeta(chat, index, counters);
+        chat.label = meta.label;
+        chat.subtitle = meta.subtitle;
+        chat.badge = meta.badge;
+
+        const node = document.createElement("button");
+        node.className = `chat-item${chat.id === state.selectedChatId ? " active" : ""}`;
+        node.type = "button";
+        node.dataset.chatId = chat.id;
+        node.dataset.chatType = chat.chat_type;
+        node.innerHTML = `
+          <strong>${meta.label}</strong>
+          <small>${meta.subtitle}</small>
+        `;
+
+        root.appendChild(node);
+      });
+    }
+
+    function setChatHeader(chat) {
+      document.getElementById("chat-title").textContent = chat?.label || "Sohbet";
+      document.getElementById("chat-subtitle").textContent = chat?.subtitle || "Konusmaya basla";
+      document.getElementById("chat-badge").textContent = chat?.badge || "Sohbet";
+    }
+
+    function renderMessages() {
+      const root = document.getElementById("message-feed");
+      root.innerHTML = "";
+
+      const messages = state.history[state.selectedChatId] || [];
+      messages.forEach((item) => {
+        const row = document.createElement("article");
+        row.className = `msg-row${item.from_self ? " you" : ""}`;
+        const editedTag = item.edited_at ? `<span class="tag">duzenlendi</span>` : "";
+        const deletedClass = item.deleted ? " deleted" : "";
+        const timeLabel = new Date(item.created_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+        const canEdit = isEditable(item);
+        const canDelete = isDeletable(item);
+
+        row.innerHTML = `
+          <div class="bubble${deletedClass}">
+            <div>${item.deleted ? "Mesaj silindi" : Melt.highlightMentions(item.body || "")}</div>
+            <div class="bubble-meta">
+              ${timeLabel} ${editedTag}
+            </div>
+            ${item.from_self && (canEdit || canDelete) ? `
+              <div class="row-wrap bubble-actions" data-message="${item.id}">
+                ${canEdit ? `<button class="chip-btn" data-action="edit" data-id="${item.id}">Duzenle</button>` : ""}
+                ${canDelete ? `<button class="chip-btn" data-action="delete" data-id="${item.id}">Sil</button>` : ""}
+              </div>
+            ` : ""}
+          </div>
+        `;
+        root.appendChild(row);
+      });
+
+      root.scrollTop = root.scrollHeight;
+    }
+
+    function isEditable(message) {
+      if (!message || message.deleted || !message.from_self) return false;
+      const created = new Date(message.created_at).getTime();
+      const now = Date.now();
+      return now - created <= 300_000; // 300s
+    }
+
+    function isDeletable(message) {
+      return Boolean(message && message.from_self && !message.deleted);
+    }
+
+    function switchChat(chatId, chatType) {
+      state.selectedChatId = chatId;
+      state.selectedChatType = chatType;
+
+      const chat = currentChat();
+      if (chat) {
+        ensureChatHistory(chat.id, chat.label || "Sohbet");
+        state.selectedChatLabel = chat.label || "Sohbet";
+      }
+
+      renderChatList();
+      setChatHeader(chat);
+      renderMessages();
+    }
+
+    function switchView(viewName) {
+      state.activeView = viewName;
+
+      document.querySelectorAll("#main-nav .nav-item").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.view === viewName);
+      });
+
+      document.getElementById("chat-view").classList.toggle("hidden", viewName !== "chat");
+      document.getElementById("discussion-view").classList.toggle("hidden", viewName !== "discussion");
+      document.getElementById("notifications-view").classList.toggle("hidden", viewName !== "notifications");
+    }
+
+    function updateInsights() {
+      document.getElementById("insight-chat-count").textContent = String(state.chats.length);
+      document.getElementById("insight-post-count").textContent = String(state.discussionCount);
+      document.getElementById("insight-notify-count").textContent = String(state.notificationCount);
+    }
+
+    async function loadBootstrapContext() {
+      const result = await Melt.api("/api/bootstrap/state", "GET");
+      if (result.status === 401 || result.status === 403) {
+        window.location.href = "/index.html";
+        return;
+      }
+      if (!result.ok || !result.body.ok) {
+        Melt.toast("Veriler yuklenemedi");
+        return;
+      }
+
+      const payload = result.body.data || {};
+      state.users = payload.users || [];
+      state.chats = payload.chats || [];
+      state.discussionCursor = null;
+      state.notificationCursor = null;
+
+      const authenticatedUser = payload.current_user_id
+        ? state.users.find((user) => user.id === payload.current_user_id)
+        : null;
+      const activeUser = authenticatedUser
+        || state.users.find((user) => String(user.status).toLowerCase() === "active")
+        || state.users[0];
+      state.selectedUserId = activeUser ? activeUser.id : null;
+
+      const communityChat = state.chats.find((chat) => chat.chat_type === "Community") || state.chats[0];
+      state.selectedChatId = communityChat ? communityChat.id : null;
+      state.selectedChatType = communityChat ? communityChat.chat_type : "Community";
+
+      updateProfileCard();
+      renderChatList();
+      if (state.selectedChatId) {
+        switchChat(state.selectedChatId, state.selectedChatType);
+      }
+
+      await Promise.all([refreshDiscussion(), refreshNotifications()]);
+      updateInsights();
+    }
+
+    async function sendMessage(event) {
+      event.preventDefault();
+      Melt.hideNotice("message-notice");
+
+      const body = document.getElementById("message-input").value.trim();
+      if (!body) {
+        Melt.showNotice("message-notice", "Bos mesaj gonderilemez", "error");
+        return;
+      }
+
+      if (!state.selectedUserId || !state.selectedChatId) {
+        Melt.showNotice("message-notice", "Sohbet secimi yapilamadi", "error");
+        return;
+      }
+
+      const result = await Connection.send_dm({
+        user_id: state.selectedUserId,
+        chat_id: state.selectedChatId,
+        chat_type: state.selectedChatType,
+        body
+      });
+
+      if (!result.ok || !result.body.ok) {
+        Melt.showNotice("message-notice", result.body.message || "Mesaj gonderilemedi", "error");
+        return;
+      }
+
+      const message = result.body.data;
+      addMessageToHistory(state.selectedChatId, message, true);
+
+      document.getElementById("message-input").value = "";
+      renderMessages();
+      Melt.showNotice("message-notice", "Mesajin gonderildi", "success");
+      await refreshNotifications();
+      updateInsights();
+    }
+
+    async function editMessage(messageId) {
+      const history = state.history[state.selectedChatId] || [];
+      const target = history.find((m) => m.id === messageId);
+      if (!target || !isEditable(target)) {
+        Melt.toast("Duzenleme suresi doldu");
+        return;
+      }
+
+      const draft = prompt("Yeni mesaj:", target.body || "");
+      if (draft === null) return;
+      const newBody = draft.trim();
+      if (!newBody) {
+        Melt.toast("Bos mesaj gonderilemez");
+        return;
+      }
+
+      const result = await Connection.edit_message({
+        user_id: state.selectedUserId,
+        message_id: messageId,
+        chat_type: state.selectedChatType,
+        new_body: newBody
+      });
+
+      if (!result.ok || !result.body.ok) {
+        Melt.toast(result.body.message || "Duzenleme basarisiz");
+        return;
+      }
+
+      addMessageToHistory(state.selectedChatId, result.body.data || {}, true);
+      renderMessages();
+    }
+
+    async function deleteMessage(messageId) {
+      const history = state.history[state.selectedChatId] || [];
+      const target = history.find((m) => m.id === messageId);
+      if (!target || !isDeletable(target)) {
+        Melt.toast("Silme islemi yapilamadi");
+        return;
+      }
+
+      if (!confirm("Mesaji silmek istiyor musun?")) return;
+
+      const result = await Connection.delete_message({
+        user_id: state.selectedUserId,
+        message_id: messageId,
+        chat_type: state.selectedChatType
+      });
+
+      if (!result.ok || !result.body.ok) {
+        Melt.toast(result.body.message || "Silme basarisiz");
+        return;
+      }
+
+      // server returns no data; optimistically mark as deleted
+      addMessageToHistory(state.selectedChatId, {
+        ...target,
+        body: "Mesaj silindi",
+        deleted: true,
+        edited_at: new Date().toISOString(),
+      }, true);
+      renderMessages();
+    }
+
+    async function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const statusNode = document.getElementById("file-status");
+      statusNode.textContent = "Kontrol ediliyor...";
+
+      const result = await Melt.api("/api/files/prepare", "POST", {
+        user_id: state.selectedUserId,
+        mime_type: file.type || "application/octet-stream",
+        size_bytes: file.size
+      });
+
+      if (!result.ok || !result.body.ok) {
+        statusNode.textContent = result.body.message || "Dosya kullanilamadi";
+        statusNode.style.color = "#ffb3c2";
+        return;
+      }
+
+      const fileId = result.body.data?.file_id;
+      if (!fileId || !state.selectedUserId) {
+        statusNode.textContent = "Dosya hazirlanamadi";
+        statusNode.style.color = "#ffb3c2";
+        return;
+      }
+
+      const uploadResult = await Melt.uploadFile(file, {
+        user_id: state.selectedUserId,
+        file_id: fileId
+      });
+
+      if (!uploadResult.ok || !uploadResult.body.ok) {
+        statusNode.textContent = uploadResult.body.message || "Dosya yuklenemedi";
+        statusNode.style.color = "#ffb3c2";
+        return;
+      }
+
+      statusNode.textContent = "Dosya sunucuda saklandi";
+      statusNode.style.color = "#8ef3d3";
+    }
+
+    function renderDiscussion(posts) {
+      const root = document.getElementById("discussion-list");
+      root.innerHTML = "";
+
+      state.discussionCount = posts.length;
+
+      if (!posts.length) {
+        root.innerHTML = "<div class='notice'>Henuz bir baslik acilmamis.</div>";
+        updateInsights();
+        return;
+      }
+
+      posts.forEach((post) => {
+        const node = document.createElement("article");
+        node.className = "discussion-card";
+        node.innerHTML = `
+          <h3 class="discussion-title">${post.title || "Yanit"}</h3>
+          <div>${Melt.highlightMentions(post.body || "")}</div>
+          <div class="row" style="justify-content: space-between;">
+            <span class="subtitle" style="margin:0;">${new Date(post.created_at).toLocaleString("tr-TR")}</span>
+            <div class="vote-bar">
+              <button class="button button-soft" data-vote="1" data-post="${post.id}">Begendim</button>
+              <button class="button button-soft" data-vote="-1" data-post="${post.id}">Katilmiyorum</button>
+            </div>
+          </div>
+        `;
+        root.appendChild(node);
+      });
+
+      updateInsights();
+    }
+
+    async function refreshDiscussion() {
+      const params = new URLSearchParams({ sort: state.sort });
+      if (state.discussionCursor) {
+        params.set("cursor", state.discussionCursor);
+      }
+      const result = await Melt.api(`/api/discussion/list?${params.toString()}`, "GET");
+      if (!result.ok || !result.body.ok) {
+        Melt.showNotice("discussion-notice", result.body.message || "Basliklar yuklenemedi", "error");
+        return;
+      }
+
+      const payload = result.body.data || { items: [], next_cursor: null };
+      state.discussionCursor = payload.next_cursor || null;
+      renderDiscussion(payload.items || []);
+    }
+
+    async function createDiscussion(event) {
+      event.preventDefault();
+      Melt.hideNotice("discussion-notice");
+
+      const title = document.getElementById("discussion-title").value.trim();
+      const body = document.getElementById("discussion-body").value.trim();
+
+      if (!body) {
+        Melt.showNotice("discussion-notice", "Mesaj alani bos birakilamaz", "error");
+        return;
+      }
+
+      const result = await Connection.discussion_reply({
+        user_id: state.selectedUserId,
+        thread_id: null,
+        parent_id: null,
+        title,
+        body
+      });
+
+      if (!result.ok || !result.body.ok) {
+        Melt.showNotice("discussion-notice", result.body.message || "Paylasim yapilamadi", "error");
+        return;
+      }
+
+      document.getElementById("discussion-title").value = "";
+      document.getElementById("discussion-body").value = "";
+      Melt.showNotice("discussion-notice", "Basligin paylasildi", "success");
+      await refreshDiscussion();
+    }
+
+    async function votePost(postId, value) {
+      const result = await Connection.discussion_vote({
+        user_id: state.selectedUserId,
+        post_id: postId,
+        value,
+        undo: false
+      });
+
+      if (!result.ok || !result.body.ok) {
+        Melt.showNotice("discussion-notice", result.body.message || "Oylama basarisiz", "error");
+        return;
+      }
+
+      Melt.showNotice("discussion-notice", "Oyun kaydedildi", "success");
+      await refreshDiscussion();
+    }
+
+    function renderNotifications(items) {
+      const root = document.getElementById("notification-list");
+      root.innerHTML = "";
+
+      state.notificationCount = items.length;
+      document.getElementById("unread-badge").textContent = String(items.length);
+
+      if (!items.length) {
+        root.innerHTML = "<div class='notice'>Yeni bildirim yok.</div>";
+        updateInsights();
+        return;
+      }
+
+      items.forEach((item) => {
+        const node = document.createElement("article");
+        node.className = "discussion-card";
+        node.innerHTML = `
+          <strong>${item.kind}</strong>
+          <div>${item.body}</div>
+          <div class="subtitle" style="margin:0;">${new Date(item.created_at).toLocaleString("tr-TR")}</div>
+        `;
+        root.appendChild(node);
+      });
+
+      updateInsights();
+    }
+
+    async function refreshNotifications() {
+      if (!state.selectedUserId) return;
+
+      const params = new URLSearchParams({
+        user_id: state.selectedUserId,
+        limit: "50"
+      });
+      if (state.notificationCursor) {
+        params.set("cursor", state.notificationCursor);
+      }
+
+      const result = await Melt.api(`/api/notifications/list?${params.toString()}`, "GET");
+      if (!result.ok || !result.body.ok) {
+        Melt.showNotice("notification-notice", result.body.message || "Bildirimler yuklenemedi", "error");
+        return;
+      }
+
+      const payload = result.body.data || { items: [], next_cursor: null };
+      state.notificationCursor = payload.next_cursor || null;
+      renderNotifications(payload.items || []);
+    }
+
+    async function muteCommunity() {
+      const communityChat = state.chats.find((chat) => chat.chat_type === "Community");
+      if (!communityChat) {
+        Melt.showNotice("notification-notice", "Topluluk odasi bulunamadi", "error");
+        return;
+      }
+
+      const result = await Connection.mute_chat({
+        user_id: state.selectedUserId,
+        chat_id: communityChat.id,
+        duration_minutes: 30
+      });
+
+      if (!result.ok || !result.body.ok) {
+        Melt.showNotice("notification-notice", result.body.message || "Sessize alma basarisiz", "error");
+        return;
+      }
+
+      Melt.showNotice("notification-notice", "Bildirimler 30 dakika susturuldu", "success");
+    }
+
+    async function logoutCurrent() {
+      await Melt.api("/api/auth/logout", "POST", {});
+      window.location.href = "/auth.html";
+    }
+
+    async function logoutAll() {
+      if (!state.selectedUserId) {
+        Melt.toast("Kullanici bilgisi bulunamadi");
+        return;
+      }
+
+      await Melt.api("/api/auth/logout-all", "POST", { user_id: state.selectedUserId });
+      window.location.href = "/auth.html";
+    }
+
+    function wireEvents() {
+      document.getElementById("main-nav").addEventListener("click", (event) => {
+        const item = event.target.closest(".nav-item");
+        if (!item) return;
+        switchView(item.dataset.view);
+      });
+
+      document.getElementById("chat-list").addEventListener("click", (event) => {
+        const item = event.target.closest(".chat-item");
+        if (!item) return;
+        switchChat(item.dataset.chatId, item.dataset.chatType);
+      });
+
+      document.getElementById("message-feed").addEventListener("click", async (event) => {
+        const btn = event.target.closest("[data-action]");
+        if (!btn) return;
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+        if (action === "edit") {
+          await editMessage(id);
+        }
+        if (action === "delete") {
+          await deleteMessage(id);
+        }
+      });
+
+      document.getElementById("message-form").addEventListener("submit", sendMessage);
+      document.getElementById("file-input").addEventListener("change", handleFileSelect);
+
+      document.getElementById("discussion-form").addEventListener("submit", createDiscussion);
+      document.getElementById("discussion-list").addEventListener("click", async (event) => {
+        const btn = event.target.closest("button[data-vote]");
+        if (!btn) return;
+        await votePost(btn.dataset.post, Number(btn.dataset.vote));
+      });
+
+      document.getElementById("discussion-sorts").addEventListener("click", async (event) => {
+        const chip = event.target.closest(".chip-btn");
+        if (!chip) return;
+
+        state.sort = chip.dataset.sort;
+        document.querySelectorAll("#discussion-sorts .chip-btn").forEach((node) => {
+          node.classList.toggle("active", node === chip);
+        });
+
+        await refreshDiscussion();
+      });
+
+      document.getElementById("reload-notifications").addEventListener("click", refreshNotifications);
+      document.getElementById("mute-community").addEventListener("click", muteCommunity);
+      document.getElementById("logout-current").addEventListener("click", logoutCurrent);
+      document.getElementById("logout-all").addEventListener("click", logoutAll);
+    }
+
+    // Attach application-level listeners that keep UI in sync with backend pushes.
+    function registerConnectionHandlers() {
+      Connection.on("chat.message", (payload) => {
+        if (!payload || !payload.chat_id || !payload.message) return;
+        const fromSelf = payload.message.sender_id === state.selectedUserId;
+        addMessageToHistory(payload.chat_id, payload.message, fromSelf);
+      });
+      Connection.on("discussion.post", async () => {
+        await refreshDiscussion();
+      });
+      Connection.on("discussion.vote", (payload) => {
+        if (!payload || !payload.post_id) return;
+        Melt.toast("Tartisma oylamasi guncellendi.");
+      });
+      Connection.on("notification.created", async (payload) => {
+        if (!payload || payload.user_id !== state.selectedUserId) return;
+        await refreshNotifications();
+      });
+      Connection.on("admin.event", (payload) => {
+        if (!payload || !payload.action) return;
+        if (payload.action.startsWith("discussion.edit.")) {
+          Melt.toast("Tartisma duzenleme talebi guncellendi.");
+        }
+      });
+    }
+
+    async function init() {
+      wireEvents();
+      registerConnectionHandlers();
+      Connection.attachStatus("presence-status");
+      Connection.connect();
+      await loadBootstrapContext();
+      switchView("chat");
+      lucide.createIcons();
+    }
+
+    init();
+  </script>
+</body>
+</html>

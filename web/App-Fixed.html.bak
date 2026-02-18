@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Uygulama Arayüzü</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #2563EB;
+            --dark-background: #0B0F19;
+            --surface: #111827;
+            --soft-surface: #1F2937;
+            --border: #2D3748;
+            --text-primary: #E5E7EB;
+            --text-muted: #9CA3AF;
+            --danger: #DC2626;
+            --success: #16A34A;
+        }
+
+        body {
+            background-color: var(--dark-background);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s cubic-bezier(0, 1, 0, 1); }
+        .accordion-content.open { max-height: 1000px; transition: max-height 0.3s cubic-bezier(1, 0, 1, 0); }
+        .rotate-180 { transform: rotate(180deg); }
+
+        .nav-item-active {
+            background-color: var(--soft-surface);
+            color: white;
+            border-left: 3px solid var(--primary);
+        }
+
+        .profile-ring {
+            position: relative;
+            padding: 3px;
+            background: conic-gradient(#3b82f6, #8b5cf6, #ec4899, #f59e0b, #3b82f6);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .profile-ring img, .profile-ring .avatar-fallback {
+            border: 3px solid #111827;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .user-card {
+            background: rgba(31, 41, 55, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+        .user-card:hover {
+            border-color: rgba(37, 99, 235, 0.4);
+            background: rgba(31, 41, 55, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .markdown-preview h1 { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; }
+        .markdown-preview h2 { font-size: 1.25rem; font-weight: bold; margin-bottom: 0.75rem; }
+        .markdown-preview p { margin-bottom: 1rem; color: #D1D5DB; line-height: 1.6; }
+        .markdown-preview code { background: #1F2937; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.875rem; }
+        .markdown-preview pre { background: #1F2937; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1rem; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden selection:bg-blue-500/30">
+
+    <aside class="w-[300px] bg-[#0B0F19] border-r border-[#2D3748] flex flex-col shrink-0">
+        <div class="p-6 border-b border-[#2D3748] flex items-center gap-3">
+            <div class="relative shrink-0">
+                <div id="profile-avatar-hero" class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-400 flex items-center justify-center font-bold text-white shadow-lg">NV</div>
+                <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#16A34A] border-2 border-[#0B0F19] rounded-full"></div>
+            </div>
+            <div class="min-w-0">
+                <p id="profile-name-hero" class="font-semibold text-sm truncate">Kullanıcı</p>
+                <p id="profile-status-hero" class="text-[10px] text-[#9CA3AF]">Durum</p>
+            </div>
+        </div>
+
+        <div class="px-4 pt-3">
+            <a href="/app.html" class="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-[11px] font-bold rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors">
+                Klasik arayüz
+            </a>
+        </div>
+
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
+            <div class="space-y-1">
+                <button onclick="toggleAccordion('sidebar-chats')" class="w-full flex items-center justify-between p-2 text-[#9CA3AF] hover:text-white transition-colors">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="message-circle" class="w-4 h-4"></i>
+                        <span class="text-xs font-bold uppercase tracking-widest">Sohbetler</span>
+                    </div>
+                    <i data-lucide="chevron-down" id="sidebar-chats-icon" class="w-4 h-4 transition-transform rotate-180"></i>
+                </button>
+
+                <div id="sidebar-chats" class="accordion-content open space-y-1">
+                    <div class="pl-2">
+                        <button onclick="toggleAccordion('sub-contacts')" class="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[#1F2937] text-sm text-[#9CA3AF]">
+                            <span class="flex items-center gap-2"><i data-lucide="user" class="w-3.5 h-3.5"></i> Kişiler</span>
+                            <span class="bg-[#2563EB] text-white text-[9px] px-1.5 py-0.5 rounded-full">3</span>
+                        </button>
+                        <div id="sub-contacts" class="accordion-content open pl-4 mt-1 space-y-1 border-l border-[#2D3748] ml-3">
+                            <div onclick="openChat('User A')" class="flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] cursor-pointer text-sm nav-item-active">
+                                <div class="w-6 h-6 rounded-full bg-gray-700 shrink-0"></div>
+                                <span class="truncate">User A</span>
+                            </div>
+                            <div onclick="openChat('User B')" class="flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] cursor-pointer text-sm text-[#9CA3AF]">
+                                <div class="w-6 h-6 rounded-full bg-gray-700 shrink-0"></div>
+                                <span class="truncate">User B</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pl-2">
+                        <button onclick="toggleAccordion('sub-groups')" class="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[#1F2937] text-sm text-[#9CA3AF]">
+                            <span class="flex items-center gap-2"><i data-lucide="layers" class="w-3.5 h-3.5"></i> Gruplar</span>
+                        </button>
+                        <div id="sub-groups" class="accordion-content pl-4 mt-1 space-y-1 border-l border-[#2D3748] ml-3">
+                            <div onclick="openChat('Project X')" class="flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] cursor-pointer text-sm text-[#9CA3AF]">
+                                <i data-lucide="hash" class="w-3.5 h-3.5"></i>
+                                <span class="truncate">Project X</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-1 pt-2">
+                <button onclick="toggleAccordion('sidebar-community')" class="w-full flex items-center justify-between p-2 text-[#9CA3AF] hover:text-white transition-colors">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                        <span class="text-xs font-bold uppercase tracking-widest">Topluluk</span>
+                    </div>
+                    <i data-lucide="chevron-down" id="sidebar-community-icon" class="w-4 h-4 transition-transform"></i>
+                </button>
+
+                <div id="sidebar-community" class="accordion-content pl-2 space-y-1">
+                    <div onclick="openChat('Anime Topluluğu')" class="flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] cursor-pointer text-sm text-[#9CA3AF]">
+                        <div class="w-6 h-6 rounded bg-orange-500/20 text-orange-500 flex items-center justify-center text-[10px]">A</div>
+                        <span class="truncate">Anime</span>
+                    </div>
+                    <div onclick="openChat('Film Kulübü')" class="flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] cursor-pointer text-sm text-[#9CA3AF]">
+                        <div class="w-6 h-6 rounded bg-red-500/20 text-red-500 flex items-center justify-center text-[10px]">F</div>
+                        <span class="truncate">Film</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button onclick="showDiscussion()" id="nav-discussion" class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] text-[#9CA3AF] hover:text-white transition-all">
+                    <i data-lucide="layout" class="w-4 h-4"></i>
+                    <span class="text-xs font-bold uppercase tracking-widest">Tartışmalar</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-[#2D3748] space-y-1">
+            <button class="w-full flex items-center gap-3 px-3 py-2 text-[#9CA3AF] hover:text-white transition-colors">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+                <span class="text-xs font-medium">Ayarlar</span>
+            </button>
+            <button class="w-full flex items-center gap-3 px-3 py-2 text-[#DC2626] hover:bg-red-500/10 rounded-lg transition-colors">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+                <span class="text-xs font-bold">Çıkış Yap</span>
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex relative bg-[#0B0F19] overflow-hidden">
+        <div id="view-chat" class="flex flex-col h-full w-full">
+            <header class="h-[73px] border-b border-[#2D3748] flex items-center justify-between px-6 bg-[#111827]/50 backdrop-blur-md">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gray-700" id="chat-avatar"></div>
+                    <div>
+                        <h2 class="font-bold text-sm" id="chat-title">User A</h2>
+                        <p class="text-[10px] text-[#16A34A] flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 bg-[#16A34A] rounded-full"></span> Çevrimiçi
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 text-[#9CA3AF]">
+                    <i data-lucide="search" class="w-5 h-5 cursor-pointer hover:text-white"></i>
+                    <i data-lucide="more-vertical" class="w-5 h-5 cursor-pointer hover:text-white"></i>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar" id="chat-feed"></div>
+            <div id="chat-notice" class="px-6 text-xs text-red-400 hidden"></div>
+
+            <div class="p-6 bg-[#0B0F19]">
+                <form id="composer-form" class="bg-[#111827] border border-[#2D3748] rounded-xl p-2 flex items-center gap-2 focus-within:border-[#2563EB] transition-all">
+                    <button type="button" class="p-2 text-[#9CA3AF] hover:bg-[#1F2937] rounded-lg"><i data-lucide="smile" class="w-5 h-5"></i></button>
+                    <input id="composer-input" type="text" placeholder="Mesajınızı yazın..." class="flex-1 bg-transparent border-none outline-none text-sm py-2">
+                    <button id="composer-send" type="submit" class="bg-[#2563EB] text-white p-2 rounded-lg hover:bg-blue-600 shadow-lg shadow-blue-500/20">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div id="view-discussion" class="hidden flex w-full h-full overflow-hidden">
+            <div id="discussion-list" class="flex-1 flex flex-col h-full border-r border-[#2D3748]">
+                <header class="h-[73px] border-b border-[#2D3748] flex items-center justify-between px-8 bg-[#111827]/30">
+                    <h2 class="font-bold text-lg">Tartışma Panosu</h2>
+                    <button id="new-discussion-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-lg shadow-blue-500/20">+ Yeni Başlık</button>
+                </header>
+                <div class="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar" id="discussion-list-container"></div>
+            </div>
+
+            <div id="discussion-detail" class="hidden flex-1 flex flex-col h-full bg-[#0B0F19]">
+                <header class="h-[73px] border-b border-[#2D3748] flex items-center justify-between px-6 bg-[#111827]/30 shrink-0">
+                    <div class="flex items-center gap-4">
+                        <button onclick="closeDiscussionDetail()" class="p-2 hover:bg-[#1F2937] rounded-lg text-gray-400 transition-colors">
+                            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                        </button>
+                        <h2 class="font-bold text-sm truncate max-w-[400px]" id="detail-header-title">Konu</h2>
+                    </div>
+                    <button id="reply-button" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2">
+                        <i data-lucide="reply" class="w-4 h-4"></i> Yanıtla
+                    </button>
+                </header>
+
+                <div class="flex-1 flex overflow-hidden">
+                    <div class="flex-1 flex flex-col overflow-hidden">
+                        <div class="p-10 shrink-0">
+                            <div class="flex gap-8">
+                                <div class="flex flex-col items-center gap-4">
+                                    <div class="profile-ring">
+                                        <div class="avatar-fallback w-16 h-16 bg-indigo-600 flex items-center justify-center font-bold text-white text-xl" id="detail-author-avatar">AK</div>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-1">
+                                        <button class="p-1.5 hover:text-blue-500 transition-colors"><i data-lucide="chevron-up" class="w-6 h-6"></i></button>
+                                        <span class="font-bold text-lg" id="detail-vote-count">128</span>
+                                        <button class="p-1.5 hover:text-red-500 transition-colors"><i data-lucide="chevron-down" class="w-6 h-6"></i></button>
+                                    </div>
+                                </div>
+                                <div class="flex-1 pt-1">
+                                    <h1 class="text-3xl font-black mb-6 tracking-tight" id="detail-main-title">Başlık</h1>
+                                    <div class="text-gray-300 text-base leading-relaxed max-w-3xl" id="detail-main-content">İçerik yükleniyor...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="px-10 py-4 flex items-center gap-6 shrink-0">
+                            <div class="h-px flex-1 bg-gradient-to-r from-transparent via-[#2D3748] to-transparent"></div>
+                            <span class="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em]">Yorumlar</span>
+                            <div class="h-px flex-1 bg-gradient-to-r from-transparent via-[#2D3748] to-transparent"></div>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto p-10 pt-2 custom-scrollbar space-y-6" id="detail-replies-container"></div>
+                    </div>
+
+                    <aside class="w-[320px] bg-[#111827] flex flex-col hidden xl:flex">
+                        <div class="p-8 space-y-8 overflow-y-auto custom-scrollbar">
+                            <section>
+                                <h4 class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-4">Trend Başlıklar</h4>
+                                <div class="space-y-4" id="trending-topics"></div>
+                            </section>
+
+                            <section class="bg-[#1F2937] rounded-xl p-4 border border-[#2D3748]">
+                                <h4 class="text-xs font-bold mb-3">Haftalık Özet</h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-[10px] text-[#9CA3AF] uppercase">Başlıklar</p>
+                                        <p class="text-lg font-bold" id="stats-topics">248</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-[10px] text-[#9CA3AF] uppercase">Yanıtlar</p>
+                                        <p class="text-lg font-bold text-[#16A34A]" id="stats-replies">1.2k</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="text-[11px] text-[#9CA3AF] space-y-2">
+                                <p class="font-bold text-white mb-2">Topluluk Kuralları</p>
+                                <p>1. Saygılı ve yapıcı olun.</p>
+                                <p>2. Konu dışı paylaşımlardan kaçının.</p>
+                                <p>3. Kod bloklarını uygun formatta paylaşın.</p>
+                            </section>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="reply-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+        <div class="user-card w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border-white/10">
+            <div class="p-6 border-b border-white/5 flex items-center justify-between">
+                <h3 class="font-bold">Yanıtını Yaz</h3>
+                <button onclick="closeReplyModal()" class="text-gray-500 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <input id="reply-title" class="w-full mb-4 bg-[#0B0F19]/50 border border-white/5 rounded-2xl p-3 text-sm outline-none focus:border-blue-500/50" placeholder="Başlık (isteğe bağlı)">
+                <div class="flex gap-6 mb-4">
+                    <button onclick="switchReplyTab('write')" id="tab-write" class="text-xs font-black uppercase tracking-widest pb-2 border-b-2 border-blue-500">Düzenle</button>
+                    <button onclick="switchReplyTab('preview')" id="tab-preview" class="text-xs font-black uppercase tracking-widest pb-2 border-b-2 border-transparent text-gray-500">Önizleme</button>
+                </div>
+                <div id="reply-write-area">
+                    <textarea id="reply-input" class="w-full h-40 bg-[#0B0F19]/50 border border-white/5 rounded-2xl p-4 text-sm outline-none focus:border-blue-500/50 resize-none custom-scrollbar shadow-inner" placeholder="Markdown desteklenir..."></textarea>
+                </div>
+                <div id="reply-preview-area" class="hidden h-40 bg-[#0B0F19]/50 border border-white/5 rounded-2xl p-4 text-sm overflow-y-auto custom-scrollbar markdown-preview"></div>
+            </div>
+            <div class="p-6 bg-white/5 flex justify-end gap-4">
+                <button onclick="closeReplyModal()" class="px-6 py-2.5 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-all">İptal</button>
+                <button onclick="submitReply()" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all">Gönder</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="melt.js"></script>
+    <script src="connection.js"></script>
+    <script>
+      (() => {
+        const state = {
+          users: [],
+          chats: [],
+          history: {},
+          selectedUserId: null,
+          selectedChatId: null,
+          selectedChatType: "Community",
+          discussions: [],
+          discussionCursor: null,
+          sort: "hot",
+        };
+
+        let selectedDiscussion = null;
+        let replyContext = { threadId: null, parentId: null };
+
+        const nodes = {
+          contacts: document.getElementById("sub-contacts"),
+          groups: document.getElementById("sub-groups"),
+          community: document.getElementById("sidebar-community"),
+          chatFeed: document.getElementById("chat-feed"),
+          chatTitle: document.getElementById("chat-title"),
+          chatAvatar: document.getElementById("chat-avatar"),
+          chatNotice: document.getElementById("chat-notice"),
+          composerInput: document.getElementById("composer-input"),
+          discussionList: document.getElementById("discussion-list-container"),
+          discussionListWrap: document.getElementById("discussion-list"),
+          discussionDetail: document.getElementById("discussion-detail"),
+          trending: document.getElementById("trending-topics"),
+          profileName: document.getElementById("profile-name-hero"),
+          profileStatus: document.getElementById("profile-status-hero"),
+          profileAvatar: document.getElementById("profile-avatar-hero"),
+        };
+
+        function initLucide() {
+          if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+          }
+        }
+
+        function toggleAccordion(id) {
+          const content = document.getElementById(id);
+          const icon = document.getElementById(id + "-icon");
+          if (icon) icon.classList.toggle("rotate-180");
+          content.classList.toggle("open");
+        }
+        // Expose for legacy inline handlers.
+        window.toggleAccordion = toggleAccordion;
+
+        function showDiscussion() {
+          document.getElementById("view-chat").classList.add("hidden");
+          document.getElementById("view-discussion").classList.remove("hidden");
+        }
+        window.showDiscussion = showDiscussion;
+
+        function openChat(title) {
+          document.getElementById("view-discussion").classList.add("hidden");
+          document.getElementById("view-chat").classList.remove("hidden");
+          nodes.chatTitle.textContent = title || "Sohbet";
+        }
+        window.openChat = openChat;
+
+        function normalizeChatType(value) {
+          if (value === 1 || value === "1") return "DirectMessage";
+          if (value === 2 || value === "2") return "Group";
+          if (value === 3 || value === "3") return "Community";
+          return value || "Community";
+        }
+
+        function chatMeta(chat, index, counters) {
+          const type = normalizeChatType(chat.chat_type);
+          if (type === "Community") {
+            return { label: chat.label || "Topluluk", subtitle: "Herkese açık sohbet", badge: "Topluluk" };
+          }
+          if (type === "Group") {
+            counters.group += 1;
+            return { label: chat.label || `Grup ${counters.group}`, subtitle: "Grup sohbeti", badge: "Grup" };
+          }
+          counters.dm += 1;
+          return { label: chat.label || `Özel ${counters.dm}`, subtitle: "Kişisel sohbet", badge: "Özel" };
+        }
+
+        function ensureHistory(chatId, label) {
+          if (!state.history[chatId]) {
+            state.history[chatId] = [
+              {
+                id: `welcome-${chatId}`,
+                body: `${label} odasına hoş geldin.`,
+                created_at: new Date().toISOString(),
+                edited_at: null,
+                deleted: false,
+                from_self: false,
+                sender_id: null,
+              },
+            ];
+          }
+        }
+
+        function formatTime(ts) {
+          return new Date(ts).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+        }
+
+        function showChatError(message) {
+          nodes.chatNotice.textContent = message;
+          nodes.chatNotice.classList.toggle("hidden", !message);
+        }
+
+        function isEditable(message) {
+          if (!message || message.deleted || !message.from_self) return false;
+          const created = new Date(message.created_at).getTime();
+          return Date.now() - created <= 300_000;
+        }
+
+        function isDeletable(message) {
+          return Boolean(message && message.from_self && !message.deleted);
+        }
+
+        function addMessageToHistory(chatId, message, fromSelf) {
+          if (!chatId || !message || !message.id) return;
+          const history = state.history[chatId] || [];
+          const existing = history.find((item) => item.id === message.id);
+          const normalized = {
+            id: message.id,
+            body: message.body,
+            created_at: message.created_at,
+            edited_at: message.edited_at || null,
+            deleted: Boolean(message.deleted),
+            sender_id: message.sender_id,
+            from_self: typeof fromSelf === "boolean" ? fromSelf : message.sender_id === state.selectedUserId,
+          };
+
+          if (existing) {
+            Object.assign(existing, normalized);
+          } else {
+            history.push(normalized);
+          }
+          state.history[chatId] = history;
+          if (chatId === state.selectedChatId) renderMessages();
+        }
+
+        function renderMessages() {
+          const root = nodes.chatFeed;
+          root.innerHTML = "";
+          const messages = state.history[state.selectedChatId] || [];
+          messages.forEach((msg) => {
+            const row = document.createElement("div");
+            row.className = `flex gap-3 max-w-[80%] ${msg.from_self ? "ml-auto flex-row-reverse" : ""}`;
+            row.innerHTML = `
+              <div class="w-8 h-8 rounded-full bg-gray-700 shrink-0 mt-auto"></div>
+              <div class="relative bg-${msg.from_self ? "[#2563EB] text-white" : "[#1F2937] text-gray-100"} p-3 rounded-2xl ${msg.from_self ? "rounded-br-none" : "rounded-bl-none"} shadow-sm text-sm ${msg.deleted ? "italic text-gray-400 bg-[#1F2937]" : ""}">
+                <div>${msg.deleted ? "Mesaj silindi" : Melt.highlightMentions(msg.body || "")}</div>
+                <div class="mt-1 text-[11px] text-gray-400 flex items-center gap-2">
+                  ${formatTime(msg.created_at)}
+                  ${msg.edited_at ? '<span class="px-1.5 py-0.5 bg-white/10 rounded text-[10px]">düzenlendi</span>' : ""}
+                </div>
+                ${msg.from_self && (isEditable(msg) || isDeletable(msg)) ? `
+                  <div class="mt-2 flex gap-2" data-message="${msg.id}">
+                    ${isEditable(msg) ? `<button data-action="edit" data-id="${msg.id}" class="text-[11px] text-blue-300 hover:text-white underline">Düzenle</button>` : ""}
+                    ${isDeletable(msg) ? `<button data-action="delete" data-id="${msg.id}" class="text-[11px] text-red-300 hover:text-white underline">Sil</button>` : ""}
+                  </div>
+                ` : ""}
+              </div>
+            `;
+            root.appendChild(row);
+          });
+          root.scrollTop = root.scrollHeight;
+          initLucide();
+        }
+
+        function setChatHeader(chat) {
+          nodes.chatTitle.textContent = chat?.label || "Sohbet";
+          nodes.chatAvatar.textContent = (chat?.label || "NV").slice(0, 2).toUpperCase();
+        }
+
+        function renderChatLists() {
+          if (nodes.contacts) nodes.contacts.innerHTML = "";
+          if (nodes.groups) nodes.groups.innerHTML = "";
+          if (nodes.community) nodes.community.innerHTML = "";
+          const counters = { dm: 0, group: 0 };
+          state.chats.forEach((chat, index) => {
+            const type = normalizeChatType(chat.chat_type);
+            const meta = chatMeta(chat, index, counters);
+            chat.label = meta.label;
+            chat.subtitle = meta.subtitle;
+            chat.badge = meta.badge;
+            const btn = document.createElement("div");
+            btn.className = "flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] cursor-pointer text-sm text-[#9CA3AF]";
+            btn.dataset.chatId = chat.id;
+            btn.dataset.chatType = type;
+            btn.innerHTML = `
+              <div class="w-6 h-6 rounded-full bg-gray-700 shrink-0 flex items-center justify-center text-[10px]">${meta.badge[0]}</div>
+              <span class="truncate">${meta.label}</span>
+            `;
+            if (type === "DirectMessage" && nodes.contacts) nodes.contacts.appendChild(btn);
+            else if (type === "Group" && nodes.groups) nodes.groups.appendChild(btn);
+            else if (nodes.community) nodes.community.appendChild(btn);
+          });
+          initLucide();
+        }
+
+        function switchChat(chatId, chatType) {
+          state.selectedChatId = chatId;
+          state.selectedChatType = chatType;
+          const chat = state.chats.find((c) => c.id === chatId);
+          if (chat) ensureHistory(chat.id, chat.label || "Sohbet");
+          setChatHeader(chat);
+          renderMessages();
+        }
+
+        async function sendMessage(event) {
+          event.preventDefault();
+          showChatError("");
+          const body = nodes.composerInput.value.trim();
+          if (!body) return showChatError("Boş mesaj gönderilemez");
+          if (!state.selectedUserId || !state.selectedChatId) return showChatError("Sohbet seçilemedi");
+          const result = await Connection.send_dm({
+            user_id: state.selectedUserId,
+            chat_id: state.selectedChatId,
+            chat_type: state.selectedChatType,
+            body,
+          });
+          if (!result.ok || !result.body?.ok) {
+            return showChatError(result.body?.message || "Mesaj gönderilemedi");
+          }
+          nodes.composerInput.value = "";
+          addMessageToHistory(state.selectedChatId, result.body.data, true);
+        }
+
+        async function editMessage(messageId) {
+          const history = state.history[state.selectedChatId] || [];
+          const target = history.find((m) => m.id === messageId);
+          if (!target || !isEditable(target)) return Melt.toast("Düzenleme süresi doldu");
+          const draft = prompt("Yeni mesaj:", target.body || "");
+          if (draft === null) return;
+          const newBody = draft.trim();
+          if (!newBody) return Melt.toast("Boş mesaj gönderilemez");
+          const result = await Connection.edit_message({
+            user_id: state.selectedUserId,
+            message_id: messageId,
+            chat_type: state.selectedChatType,
+            new_body: newBody,
+          });
+          if (!result.ok || !result.body?.ok) {
+            return Melt.toast(result.body?.message || "Düzenleme başarısız");
+          }
+          addMessageToHistory(state.selectedChatId, result.body.data || target, true);
+        }
+
+        async function deleteMessage(messageId) {
+          const history = state.history[state.selectedChatId] || [];
+          const target = history.find((m) => m.id === messageId);
+          if (!target || !isDeletable(target)) return Melt.toast("Silinemiyor");
+          if (!confirm("Mesajı silmek istiyor musun?")) return;
+          const result = await Connection.delete_message({
+            user_id: state.selectedUserId,
+            message_id: messageId,
+            chat_type: state.selectedChatType,
+          });
+          if (!result.ok || !result.body?.ok) {
+            return Melt.toast(result.body?.message || "Silme başarısız");
+          }
+          addMessageToHistory(state.selectedChatId, { ...target, body: "Mesaj silindi", deleted: true, edited_at: new Date().toISOString() }, true);
+        }
+
+        async function loadBootstrap() {
+          const res = await Melt.api("/api/bootstrap/state", "GET");
+          if (res.status === 401 || res.status === 403) {
+            window.location.href = "/index.html";
+            return;
+          }
+          if (!res.ok || !res.body?.ok) {
+            Melt.toast("Başlangıç verisi alınamadı");
+            renderChatLists(); // keep static placeholders
+            return;
+          }
+          const data = res.body.data || {};
+          state.users = data.users || [];
+          state.chats = (data.chats || []).map((c) => ({ ...c, chat_type: normalizeChatType(c.chat_type) }));
+          state.selectedUserId = data.current_user_id || (state.users[0]?.id ?? null);
+
+          if (state.users.length && nodes.profileName) {
+            const u = state.users.find((u) => u.id === state.selectedUserId) || state.users[0];
+            nodes.profileName.textContent = u.login_username || "Kullanıcı";
+            nodes.profileStatus.textContent = (u.status || "").toString();
+            nodes.profileAvatar.textContent = (u.login_username || "NV").slice(0, 2).toUpperCase();
+          }
+
+          if (!state.chats.length) {
+            // create a fallback community room so UI çalışsın
+            const fallbackId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+            state.chats.push({
+              id: fallbackId,
+              chat_type: "Community",
+              label: "Topluluk",
+              subtitle: "Herkese açık sohbet",
+              badge: "Topluluk",
+            });
+          }
+
+          const communityChat = state.chats.find((c) => normalizeChatType(c.chat_type) === "Community") || state.chats[0];
+          if (communityChat) {
+            state.selectedChatId = communityChat.id;
+            state.selectedChatType = communityChat.chat_type;
+            ensureHistory(communityChat.id, communityChat.label || "Sohbet");
+          }
+          renderChatLists();
+          if (communityChat) switchChat(communityChat.id, communityChat.chat_type);
+          await refreshDiscussion();
+        }
+
+        async function refreshDiscussion() {
+          const params = new URLSearchParams({ sort: state.sort });
+          if (state.discussionCursor) params.set("cursor", state.discussionCursor);
+          const res = await Melt.api(`/api/discussion/list?${params.toString()}`, "GET");
+          if (!res.ok || !res.body?.ok) {
+            Melt.toast(res.body?.message || "Tartışmalar alınamadı");
+            return;
+          }
+          const payload = res.body.data || { items: [], next_cursor: null };
+          state.discussions = payload.items || [];
+          state.discussionCursor = payload.next_cursor || null;
+          renderDiscussionList();
+        }
+
+        function renderDiscussionList() {
+          nodes.discussionList.innerHTML = state.discussions.map((d) => `
+            <div class="user-card p-6 rounded-2xl cursor-pointer" data-discussion="${d.id}">
+              <div class="flex items-center gap-4 mb-4">
+                <div class="profile-ring">
+                  <div class="avatar-fallback w-12 h-12 bg-indigo-600 flex items-center justify-center font-bold text-white text-sm">${(d.author_id || "").toString().slice(0,2) || "NV"}</div>
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-bold text-lg leading-tight">${d.title || "Başlık"}</h3>
+                  <p class="text-[11px] text-gray-500 mt-1">${new Date(d.created_at).toLocaleString("tr-TR")}</p>
+                </div>
+              </div>
+              <div class="text-sm text-gray-300 line-clamp-2">${Melt.highlightMentions(d.body || "")}</div>
+            </div>
+          `).join("");
+          initLucide();
+        }
+
+        function openDiscussionDetail(id) {
+          const d = state.discussions.find((x) => x.id === id);
+          if (!d) return;
+          selectedDiscussion = d;
+          nodes.discussionListWrap.classList.add("hidden");
+          nodes.discussionDetail.classList.remove("hidden");
+          document.getElementById("detail-header-title").textContent = d.title || "Başlık";
+          document.getElementById("detail-main-title").textContent = d.title || "Başlık";
+          document.getElementById("detail-main-content").innerHTML = Melt.highlightMentions(d.body || "");
+          document.getElementById("detail-author-avatar").textContent = (d.author_id || "").toString().slice(0, 2) || "NV";
+          document.getElementById("detail-vote-count").textContent = "—";
+          document.getElementById("detail-replies-container").innerHTML = '<p class="text-center text-gray-500 py-8">Yanıtlar bu sürümde listelenmiyor.</p>';
+          initLucide();
+        }
+
+        function closeDiscussionDetail() {
+          nodes.discussionListWrap.classList.remove("hidden");
+          nodes.discussionDetail.classList.add("hidden");
+          selectedDiscussion = null;
+        }
+
+        function renderTrending() {
+          if (!nodes.trending) return;
+          nodes.trending.innerHTML = "";
+        }
+
+        function openReplyModal(context = { threadId: null, parentId: null }) {
+          replyContext = context;
+          document.getElementById("reply-modal").classList.remove("hidden");
+        }
+
+        function closeReplyModal() {
+          document.getElementById("reply-modal").classList.add("hidden");
+          document.getElementById("reply-input").value = "";
+          document.getElementById("reply-title").value = "";
+        }
+
+        function switchReplyTab(tab) {
+          const isWrite = tab === "write";
+          document.getElementById("reply-write-area").classList.toggle("hidden", !isWrite);
+          document.getElementById("reply-preview-area").classList.toggle("hidden", isWrite);
+          document.getElementById("tab-write").classList.toggle("border-blue-500", isWrite);
+          document.getElementById("tab-write").classList.toggle("text-gray-500", !isWrite);
+          document.getElementById("tab-preview").classList.toggle("border-blue-500", !isWrite);
+          document.getElementById("tab-preview").classList.toggle("text-gray-500", isWrite);
+          if (!isWrite && typeof marked !== "undefined") {
+            document.getElementById("reply-preview-area").innerHTML = marked.parse(document.getElementById("reply-input").value || "*Boş...*");
+          }
+        }
+
+        async function submitReply() {
+          const body = document.getElementById("reply-input").value.trim();
+          const title = document.getElementById("reply-title").value.trim();
+          if (!body) return Melt.toast("Boş gönderi olamaz");
+          const payload = {
+            user_id: state.selectedUserId,
+            thread_id: replyContext.threadId,
+            parent_id: replyContext.parentId,
+            title,
+            body,
+          };
+          const res = await Connection.discussion_reply(payload);
+          if (!res.ok || !res.body?.ok) {
+            return Melt.toast(res.body?.message || "Gönderi başarısız");
+          }
+          closeReplyModal();
+          await refreshDiscussion();
+        }
+
+        function registerWsHandlers() {
+          Connection.on("chat.message", (payload) => {
+            if (!payload || !payload.chat_id || !payload.message) return;
+            addMessageToHistory(payload.chat_id, payload.message, payload.message.sender_id === state.selectedUserId);
+          });
+          Connection.on("discussion.post", async () => {
+            await refreshDiscussion();
+          });
+          Connection.on("discussion.vote", () => {
+            Melt.toast("Tartışma oyu güncellendi");
+          });
+          Connection.on("notification.created", () => {
+            // left out for brevity
+          });
+        }
+
+        function bindEvents() {
+          const sidebarChats = document.getElementById("sidebar-chats");
+          if (sidebarChats) {
+            sidebarChats.addEventListener("click", (e) => {
+              const btn = e.target.closest("[data-chat-id]");
+              if (!btn) return;
+              switchChat(btn.dataset.chatId, btn.dataset.chatType);
+            });
+            sidebarChats.previousElementSibling?.addEventListener("click", () => toggleAccordion("sidebar-chats"));
+          }
+
+          const sidebarCommunity = document.getElementById("sidebar-community");
+          if (sidebarCommunity) {
+            sidebarCommunity.addEventListener("click", (e) => {
+              const btn = e.target.closest("[data-chat-id]");
+              if (!btn) return;
+              switchChat(btn.dataset.chatId, btn.dataset.chatType);
+            });
+            sidebarCommunity.previousElementSibling?.addEventListener("click", () => toggleAccordion("sidebar-community"));
+          }
+
+          nodes.chatFeed?.addEventListener("click", async (e) => {
+            const btn = e.target.closest("[data-action]");
+            if (!btn) return;
+            const id = btn.dataset.id;
+            if (btn.dataset.action === "edit") await editMessage(id);
+            if (btn.dataset.action === "delete") await deleteMessage(id);
+          });
+
+          document.getElementById("composer-form")?.addEventListener("submit", sendMessage);
+
+          nodes.discussionList?.addEventListener("click", (e) => {
+            const card = e.target.closest("[data-discussion]");
+            if (!card) return;
+            openDiscussionDetail(card.dataset.discussion);
+          });
+
+          document.getElementById("new-discussion-btn")?.addEventListener("click", () => {
+            replyContext = { threadId: null, parentId: null };
+            openReplyModal(replyContext);
+          });
+
+          document.getElementById("reply-button")?.addEventListener("click", () => {
+            if (!selectedDiscussion) return;
+            replyContext = { threadId: selectedDiscussion.thread_id || selectedDiscussion.id, parentId: selectedDiscussion.id };
+            openReplyModal(replyContext);
+          });
+
+          document.getElementById("reply-modal")?.addEventListener("click", (e) => {
+            if (e.target.id === "reply-modal") closeReplyModal();
+          });
+
+          document.getElementById("tab-write")?.addEventListener("click", () => switchReplyTab("write"));
+          document.getElementById("tab-preview")?.addEventListener("click", () => switchReplyTab("preview"));
+          document.getElementById("reply-modal")?.querySelector("button.bg-blue-600")?.addEventListener("click", submitReply);
+          document.getElementById("reply-modal")?.querySelector("button.text-gray-400")?.addEventListener("click", closeReplyModal);
+
+          document.getElementById("discussion-sorts")?.addEventListener("click", async (event) => {
+            const chip = event.target.closest(".chip-btn");
+            if (!chip) return;
+            state.sort = chip.dataset.sort;
+            document.querySelectorAll("#discussion-sorts .chip-btn").forEach((node) => node.classList.toggle("active", node === chip));
+            await refreshDiscussion();
+          });
+        }
+
+        async function init() {
+          bindEvents();
+          registerWsHandlers();
+          Connection.connect();
+          await loadBootstrap();
+          initLucide();
+        }
+
+        window.addEventListener("load", init);
+      })();
+    </script>
+</body>
+</html>

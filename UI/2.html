@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Uygulama Arayüzü</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --primary: #2563EB;
+            --dark-background: #0B0F19;
+            --surface: #111827;
+            --soft-surface: #1F2937;
+            --border: #2D3748;
+            --text-primary: #E5E7EB;
+            --text-muted: #9CA3AF;
+            --danger: #DC2626;
+            --success: #16A34A;
+        }
+
+        body {
+            background-color: var(--dark-background);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 10px;
+        }
+
+        /* Accordion Animasyonu */
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0, 1, 0, 1);
+        }
+        .accordion-content.open {
+            max-height: 1000px;
+            transition: max-height 0.3s cubic-bezier(1, 0, 1, 0);
+        }
+        .rotate-180 {
+            transform: rotate(180deg);
+        }
+
+        .nav-item-active {
+            background-color: var(--soft-surface);
+            color: white;
+            border-left: 3px solid var(--primary);
+        }
+
+        /* Tartışma Kartı Hover Efekti */
+        .discussion-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+            background-color: #1a2233;
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden selection:bg-blue-500/30">
+
+    <!-- ANA SIDEBAR -->
+    <aside class="w-[300px] bg-[#0B0F19] border-r border-[#2D3748] flex flex-col shrink-0">
+        <!-- Profil Bölümü -->
+        <div class="p-6 border-b border-[#2D3748] flex items-center gap-3">
+            <div class="relative shrink-0">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-400 flex items-center justify-center font-bold text-white shadow-lg">
+                    JD
+                </div>
+                <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#16A34A] border-2 border-[#0B0F19] rounded-full"></div>
+            </div>
+            <div class="min-w-0">
+                <p class="font-semibold text-sm truncate">John Doe</p>
+                <p class="text-[10px] text-[#9CA3AF]">Çevrimiçi</p>
+            </div>
+        </div>
+
+        <!-- Akordiyon Menüleri -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
+
+            <!-- SOHBETLER -->
+            <div class="space-y-1">
+                <button onclick="toggleAccordion('sidebar-chats')" class="w-full flex items-center justify-between p-2 text-[#9CA3AF] hover:text-white transition-colors">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="message-circle" class="w-4 h-4"></i>
+                        <span class="text-xs font-bold uppercase tracking-widest">Sohbetler</span>
+                    </div>
+                    <i data-lucide="chevron-down" id="sidebar-chats-icon" class="w-4 h-4 transition-transform rotate-180"></i>
+                </button>
+
+                <div id="sidebar-chats" class="accordion-content open space-y-1">
+                    <div class="pl-2">
+                        <button onclick="toggleAccordion('sub-contacts')" class="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[#1F2937] text-sm text-[#9CA3AF]">
+                            <span class="flex items-center gap-2"><i data-lucide="user" class="w-3.5 h-3.5"></i> Kişiler</span>
+                            <span class="bg-[#2563EB] text-white text-[9px] px-1.5 py-0.5 rounded-full">3</span>
+                        </button>
+                        <div id="sub-contacts" class="accordion-content open pl-4 mt-1 space-y-1 border-l border-[#2D3748] ml-3">
+                            <div onclick="openChat('User A')" class="flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] cursor-pointer text-sm nav-item-active">
+                                <div class="w-6 h-6 rounded-full bg-gray-700 shrink-0"></div>
+                                <span class="truncate">User A</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOPLULUK -->
+            <div class="space-y-1 pt-2">
+                <button onclick="toggleAccordion('sidebar-community')" class="w-full flex items-center justify-between p-2 text-[#9CA3AF] hover:text-white transition-colors">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                        <span class="text-xs font-bold uppercase tracking-widest">Topluluk</span>
+                    </div>
+                    <i data-lucide="chevron-down" id="sidebar-community-icon" class="w-4 h-4 transition-transform"></i>
+                </button>
+                <div id="sidebar-community" class="accordion-content pl-2 space-y-1">
+                    <div onclick="openChat('Anime Topluluğu')" class="flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] cursor-pointer text-sm text-[#9CA3AF]">
+                        <div class="w-6 h-6 rounded bg-orange-500/20 text-orange-500 flex items-center justify-center text-[10px]">A</div>
+                        <span class="truncate">Anime</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARTIŞMALAR -->
+            <div class="pt-2">
+                <button onclick="showDiscussion()" id="nav-discussion" class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-[#1F2937] text-[#9CA3AF] hover:text-white transition-all">
+                    <i data-lucide="layout" class="w-4 h-4"></i>
+                    <span class="text-xs font-bold uppercase tracking-widest">Tartışmalar</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-[#2D3748] space-y-1">
+            <button class="w-full flex items-center gap-3 px-3 py-2 text-[#9CA3AF] hover:text-white transition-colors">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+                <span class="text-xs font-medium">Ayarlar</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex relative bg-[#0B0F19] overflow-hidden">
+
+        <!-- MESAJLAŞMA GÖRÜNÜMÜ -->
+        <div id="view-chat" class="flex flex-col flex-1 h-full">
+            <header class="h-[73px] border-b border-[#2D3748] flex items-center justify-between px-6 bg-[#111827]/50 backdrop-blur-md">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gray-700" id="chat-avatar"></div>
+                    <div>
+                        <h2 class="font-bold text-sm" id="chat-title">User A</h2>
+                        <p class="text-[10px] text-[#16A34A] flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 bg-[#16A34A] rounded-full"></span> Çevrimiçi
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 text-[#9CA3AF]">
+                    <i data-lucide="search" class="w-5 h-5 cursor-pointer hover:text-white"></i>
+                    <i data-lucide="more-vertical" class="w-5 h-5 cursor-pointer hover:text-white"></i>
+                </div>
+            </header>
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar" id="chat-feed">
+                <!-- Mesaj içerikleri -->
+            </div>
+            <div class="p-6 bg-[#0B0F19]">
+                <!-- Input alanı -->
+            </div>
+        </div>
+
+        <!-- TARTIŞMALAR GÖRÜNÜMÜ -->
+        <div id="view-discussion" class="hidden flex flex-1 h-full overflow-hidden">
+            <!-- Tartışma Listesi -->
+            <div class="flex-1 flex flex-col h-full border-r border-[#2D3748]">
+                <header class="h-[73px] border-b border-[#2D3748] flex items-center justify-between px-8 bg-[#111827]/50 shrink-0">
+                    <h2 class="font-bold text-lg">Tartışma Panosu</h2>
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9CA3AF]"></i>
+                            <input type="text" placeholder="Başlık ara..." class="bg-[#1F2937] text-xs rounded-full py-1.5 pl-8 pr-4 outline-none border border-transparent focus:border-[#2563EB] w-48 transition-all">
+                        </div>
+                        <button class="bg-[#2563EB] text-white p-1.5 rounded-full hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/20">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Filtreler -->
+                <div class="px-8 py-4 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-[#2D3748]/50 bg-[#0B0F19]">
+                    <button class="px-3 py-1 rounded-full bg-[#2563EB] text-white text-[11px] font-semibold whitespace-nowrap">Hepsi</button>
+                    <button class="px-3 py-1 rounded-full bg-[#1F2937] text-[#9CA3AF] hover:text-white text-[11px] font-semibold whitespace-nowrap transition-colors">Popüler</button>
+                    <button class="px-3 py-1 rounded-full bg-[#1F2937] text-[#9CA3AF] hover:text-white text-[11px] font-semibold whitespace-nowrap transition-colors">Yeni</button>
+                    <button class="px-3 py-1 rounded-full bg-[#1F2937] text-[#9CA3AF] hover:text-white text-[11px] font-semibold whitespace-nowrap transition-colors">Çözüldü</button>
+                </div>
+
+                <!-- Konu Listesi -->
+                <div class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                    <!-- Kart 1 -->
+                    <div class="discussion-card bg-[#111827] border border-[#2D3748] p-5 rounded-xl transition-all cursor-pointer group">
+                        <div class="flex gap-4">
+                            <div class="flex flex-col items-center gap-1 bg-[#1F2937] rounded-lg p-2 h-fit min-w-[40px]">
+                                <i data-lucide="chevron-up" class="w-4 h-4 text-[#9CA3AF] group-hover:text-[#2563EB]"></i>
+                                <span class="text-xs font-bold">128</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="bg-blue-500/10 text-blue-500 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Yazılım</span>
+                                    <span class="text-[10px] text-[#9CA3AF]">• 12 dk önce</span>
+                                </div>
+                                <h3 class="font-bold text-base mb-2 group-hover:text-[#2563EB] transition-colors">Modern UI kütüphaneleri arasında seçim yapmak: Melt mi, Radix mi?</h3>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-[8px] font-bold">AK</div>
+                                        <span class="text-[11px] text-[#9CA3AF]">Ahmet Kaya sordu</span>
+                                    </div>
+                                    <div class="flex items-center gap-3 text-[#9CA3AF]">
+                                        <span class="flex items-center gap-1 text-[11px]"><i data-lucide="message-square" class="w-3.5 h-3.5"></i> 24</span>
+                                        <span class="flex items-center gap-1 text-[11px]"><i data-lucide="eye" class="w-3.5 h-3.5"></i> 1.2k</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kart 2 -->
+                    <div class="discussion-card bg-[#111827] border border-[#2D3748] p-5 rounded-xl transition-all cursor-pointer group">
+                        <div class="flex gap-4">
+                            <div class="flex flex-col items-center gap-1 bg-[#1F2937] rounded-lg p-2 h-fit min-w-[40px]">
+                                <i data-lucide="chevron-up" class="w-4 h-4 text-[#9CA3AF] group-hover:text-[#2563EB]"></i>
+                                <span class="text-xs font-bold">85</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="bg-orange-500/10 text-orange-500 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Anime</span>
+                                    <span class="text-[10px] text-[#9CA3AF]">• 2 saat önce</span>
+                                </div>
+                                <h3 class="font-bold text-base mb-2 group-hover:text-[#2563EB] transition-colors">Solo Leveling 2. Sezon teorileri ve beklentiler</h3>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center text-[8px] font-bold">SJ</div>
+                                        <span class="text-[11px] text-[#9CA3AF]">Selin Jan sordu</span>
+                                    </div>
+                                    <div class="flex items-center gap-3 text-[#9CA3AF]">
+                                        <span class="flex items-center gap-1 text-[11px] text-green-500"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Çözüldü</span>
+                                        <span class="flex items-center gap-1 text-[11px]"><i data-lucide="message-square" class="w-3.5 h-3.5"></i> 56</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tartışma Sağ Panel (Contextual) -->
+            <aside class="w-[320px] bg-[#111827] flex flex-col hidden xl:flex">
+                <div class="p-8 space-y-8 overflow-y-auto custom-scrollbar">
+                    <!-- Trendler -->
+                    <section>
+                        <h4 class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-4">Trend Başlıklar</h4>
+                        <div class="space-y-4">
+                            <div class="group cursor-pointer">
+                                <p class="text-xs text-[#2563EB] mb-1 font-bold">#tailwind4</p>
+                                <p class="text-sm font-medium leading-snug group-hover:underline">Tailwind CSS v4 ile gelen yeni motor özellikleri</p>
+                                <p class="text-[10px] text-[#9CA3AF] mt-1">456 etkileşim</p>
+                            </div>
+                            <div class="group cursor-pointer">
+                                <p class="text-xs text-[#2563EB] mb-1 font-bold">#figma</p>
+                                <p class="text-sm font-medium leading-snug group-hover:underline">Dev Mode artık herkes için ücretsiz mi?</p>
+                                <p class="text-[10px] text-[#9CA3AF] mt-1">212 etkileşim</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- İstatistikler -->
+                    <section class="bg-[#1F2937] rounded-xl p-4 border border-[#2D3748]">
+                        <h4 class="text-xs font-bold mb-3">Haftalık Özet</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-[10px] text-[#9CA3AF] uppercase">Başlıklar</p>
+                                <p class="text-lg font-bold">248</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-[#9CA3AF] uppercase">Yanıtlar</p>
+                                <p class="text-lg font-bold text-[#16A34A]">1.2k</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Kurallar -->
+                    <section class="text-[11px] text-[#9CA3AF] space-y-2">
+                        <p class="font-bold text-white mb-2">Topluluk Kuralları</p>
+                        <p>1. Saygılı ve yapıcı olun.</p>
+                        <p>2. Konu dışı paylaşımlardan kaçının.</p>
+                        <p>3. Kod bloklarını uygun formatta paylaşın.</p>
+                    </section>
+                </div>
+            </aside>
+        </div>
+
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        function toggleAccordion(id) {
+            const content = document.getElementById(id);
+            const icon = document.getElementById(id + '-icon');
+            if (icon) icon.classList.toggle('rotate-180');
+            content.classList.toggle('open');
+        }
+
+        function openChat(title) {
+            document.getElementById('view-chat').classList.remove('hidden');
+            document.getElementById('view-discussion').classList.add('hidden');
+            document.getElementById('chat-title').innerText = title;
+            document.getElementById('nav-discussion').classList.remove('nav-item-active', 'text-white');
+
+            // Sidebar aktiflik yönetimi (basitleştirilmiş)
+            document.querySelectorAll('.cursor-pointer').forEach(el => el.classList.remove('nav-item-active', 'text-white'));
+            event.currentTarget.classList.add('nav-item-active');
+        }
+
+        function showDiscussion() {
+            document.getElementById('view-chat').classList.add('hidden');
+            document.getElementById('view-discussion').classList.remove('hidden');
+
+            // Sidebar aktiflik yönetimi
+            document.querySelectorAll('.cursor-pointer').forEach(el => el.classList.remove('nav-item-active', 'text-white'));
+            document.getElementById('nav-discussion').classList.add('nav-item-active', 'text-white');
+        }
+    </script>
+</body>
+</html>

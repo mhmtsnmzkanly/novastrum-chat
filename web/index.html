@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Novastrum | Captcha Gate</title>
+  <link rel="stylesheet" href="melt.css">
+</head>
+<body>
+  <main class="screen">
+    <section class="card" aria-labelledby="captcha-title">
+      <div class="card-body">
+        <span class="badge badge-blue">Giris Kati</span>
+        <h1 id="captcha-title" class="title">Insan dogrulamasi</h1>
+        <p class="subtitle">SPECS akisi: captcha onayi sonrasinda gecerli session varsa <code>app.html</code>, yoksa <code>auth.html</code>.</p>
+
+        <form id="captcha-form" class="grid" style="margin-top: 18px;">
+          <label>
+            <span class="label">Captcha Token</span>
+            <input class="input" id="captcha-token" name="captcha_token" value="i-am-human" required>
+          </label>
+
+          <label class="row" style="align-items: flex-start; margin-top: 2px;">
+            <input type="checkbox" id="human-check" required style="margin-top: 4px;">
+            <span class="subtitle" style="margin: 0;">Ben robot degilim onay kutusu (gelistirme simule captcha).</span>
+          </label>
+
+          <button class="button button-primary" type="submit">Dogrula ve Devam Et</button>
+        </form>
+
+        <div id="captcha-notice" class="notice hidden" style="margin-top: 14px;"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="melt.js"></script>
+  <script>
+    const form = document.getElementById("captcha-form");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      Melt.hideNotice("captcha-notice");
+
+      const token = document.getElementById("captcha-token").value.trim();
+      const humanCheck = document.getElementById("human-check").checked;
+      if (!humanCheck) {
+        Melt.showNotice("captcha-notice", "Lutfen 'ben robot degilim' kutusunu isaretleyin", "error");
+        return;
+      }
+      const result = await Melt.api("/api/captcha/verify", "POST", {
+        captcha_token: token,
+        human_check: humanCheck
+      });
+
+      if (!result.ok || !result.body.ok) {
+        Melt.showNotice("captcha-notice", result.body.message || "Captcha dogrulamasi basarisiz", "error");
+        return;
+      }
+
+      const nextPage = result.body.data.next_page;
+      Melt.showNotice("captcha-notice", `Dogrulama tamamlandi, ${nextPage} aciliyor...`, "success");
+      window.setTimeout(() => {
+        window.location.href = nextPage;
+      }, 450);
+    });
+  </script>
+</body>
+</html>
