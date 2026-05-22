@@ -1,9 +1,12 @@
 mod app;
 mod app_state;
+mod auth;
 mod config;
 mod db;
 mod error;
 mod http;
+mod public_id;
+mod users;
 
 use app_state::AppState;
 use config::Config;
