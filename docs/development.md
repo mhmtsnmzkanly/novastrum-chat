@@ -59,8 +59,12 @@ Expected response:
 ```json
 {
   "state": "ok",
-  "service": "novastrum-server",
-  "app_env": "development"
+  "type": "system.health",
+  "req": null,
+  "data": {
+    "service": "novastrum-server",
+    "app_env": "development"
+  }
 }
 ```
 
@@ -75,7 +79,11 @@ If `DATABASE_URL` is configured and the database ping succeeds:
 ```json
 {
   "state": "ok",
-  "database": "mariadb"
+  "type": "system.database_health",
+  "req": null,
+  "data": {
+    "database": "mariadb"
+  }
 }
 ```
 
@@ -84,14 +92,65 @@ If `DATABASE_URL` is missing:
 ```json
 {
   "state": "error",
-  "database": "mariadb",
-  "message": "DATABASE_URL is not configured"
+  "type": "error.database",
+  "req": null,
+  "data": {
+    "code": "database_unavailable",
+    "message": "DATABASE_URL is not configured"
+  }
 }
 ```
 
 `/health` works without database configuration. `/health/db` reports database status without panicking or leaking database credentials.
 
-## 6. Web Development
+## 6. Migration Workflow
+
+Migration strategy:
+
+- SQLx migration files live under `server/migrations/`.
+- Migrations are run manually with `sqlx-cli` during local development and deploy.
+- The server does not auto-run migrations at startup.
+- Application startup may check database health, but it should not mutate schema.
+
+Install `sqlx-cli` with MySQL/MariaDB and Rustls support:
+
+```sh
+cargo install sqlx-cli --no-default-features --features mysql,rustls
+```
+
+Set `DATABASE_URL` before running migration commands:
+
+```sh
+export DATABASE_URL='mysql://novastrum_user:password@127.0.0.1:3306/novastrum'
+```
+
+Run migrations from `server/`:
+
+```sh
+cd server
+sqlx migrate run
+```
+
+Check migration status:
+
+```sh
+cd server
+sqlx migrate info
+```
+
+Do not run migration commands against production accidentally. Check `DATABASE_URL` before every migration command, especially if multiple shell sessions or environment files are in use.
+
+If `sqlx` is not found:
+
+```text
+zsh: command not found: sqlx
+```
+
+Install `sqlx-cli` using the command above, then open a new shell or make sure Cargo's bin directory is on `PATH`.
+
+The current server health check can report DB connectivity, but it does not prove that migrations have been applied. Use `sqlx migrate info` for migration state.
+
+## 7. Web Development
 
 Run web commands from `web/`:
 
@@ -105,20 +164,20 @@ npm run typecheck
 
 The current web app is a static skeleton only. It does not call the backend.
 
-## 7. Current Limitations
+## 8. Current Limitations
 
 Not implemented yet:
 
 - Auth.
 - Chat.
 - WebSocket.
-- Database migrations.
+- Automatic migration runner.
 - Real API client.
 - Production deployment files.
 - Routing library.
 - Frontend state management library.
 
-## 8. Git Hygiene
+## 9. Git Hygiene
 
 Rules:
 
@@ -131,11 +190,11 @@ Rules:
 
 The root `.gitignore` already excludes current build outputs.
 
-## 9. Next Likely Implementation Steps
+## 10. Next Likely Implementation Steps
 
 Likely next slices:
 
-- Convert `docs/database-design.md` into migration files.
+- Add more migrations from `docs/database-design.md` as dedicated schema slices.
 - Add auth/session schema and service boundaries.
 - Add API response helpers that match `docs/api-contract.md`.
 - Add frontend API client later, after REST endpoints exist.
@@ -143,7 +202,7 @@ Likely next slices:
 
 These are likely next steps, not authorization to implement them in this documentation task.
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 ### `DATABASE_URL` Missing
 
@@ -152,8 +211,12 @@ This is expected for now. The server should still start and `/health` should ret
 ```json
 {
   "state": "error",
-  "database": "mariadb",
-  "message": "DATABASE_URL is not configured"
+  "type": "error.database",
+  "req": null,
+  "data": {
+    "code": "database_unavailable",
+    "message": "DATABASE_URL is not configured"
+  }
 }
 ```
 
@@ -206,3 +269,13 @@ cargo check
 ```
 
 If dependency resolution continues to fail, capture the exact error before changing dependencies.
+
+### `sqlx` Command Not Found
+
+Install `sqlx-cli`:
+
+```sh
+cargo install sqlx-cli --no-default-features --features mysql,rustls
+```
+
+If the install succeeds but the command is still unavailable, make sure Cargo's bin directory is on `PATH`.
