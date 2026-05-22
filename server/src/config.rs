@@ -5,12 +5,15 @@ use crate::error::{AppError, AppResult};
 const DEFAULT_APP_ENV: &str = "development";
 const DEFAULT_SERVER_HOST: &str = "127.0.0.1";
 const DEFAULT_SERVER_PORT: u16 = 8080;
+const DATABASE_URL_ENV: &str = "DATABASE_URL";
 
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct Config {
     pub app_env: String,
     pub server_host: String,
     pub server_port: u16,
+    #[serde(skip)]
+    pub database_url: Option<String>,
 }
 
 impl Config {
@@ -24,11 +27,15 @@ impl Config {
             })?,
             Err(_) => DEFAULT_SERVER_PORT,
         };
+        let database_url = env::var(DATABASE_URL_ENV)
+            .ok()
+            .filter(|value| !value.trim().is_empty());
 
         Ok(Self {
             app_env,
             server_host,
             server_port,
+            database_url,
         })
     }
 

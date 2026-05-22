@@ -1,6 +1,7 @@
 mod app;
 mod app_state;
 mod config;
+mod db;
 mod error;
 mod http;
 
@@ -15,7 +16,8 @@ async fn main() -> AppResult<()> {
 
     let config = Config::from_env()?;
     let bind_addr = config.bind_addr()?;
-    let app_state = AppState::new(config);
+    let database = db::Database::from_config(&config);
+    let app_state = AppState::new(config, database);
     let router = app::build_router(app_state);
 
     tracing::info!(%bind_addr, "starting novastrum server");
