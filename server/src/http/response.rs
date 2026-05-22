@@ -58,4 +58,16 @@ impl ApiErrorPayload {
             fields: None,
         }
     }
+
+    pub fn with_fields(
+        code: &'static str,
+        message: impl Into<String>,
+        fields: serde_json::Value,
+    ) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            fields: Some(fields),
+        }
+    }
 }
