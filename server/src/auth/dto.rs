@@ -9,8 +9,19 @@ pub struct RegisterRequest {
     pub password: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct LoginRequest {
+    pub user_name: String,
+    pub password: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct RegisterResponse {
+    pub user: PublicUserResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoginResponse {
     pub user: PublicUserResponse,
 }
 
