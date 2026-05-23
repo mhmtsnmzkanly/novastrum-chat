@@ -194,6 +194,28 @@ impl<'a> AuthRepository<'a> {
             dm_policy,
         }))
     }
+
+    pub async fn revoke_session_by_hash(
+        &self,
+        session_hash: &str,
+    ) -> Result<(), AuthRepositoryError> {
+        sqlx::query(
+            r#"
+            UPDATE sessions
+            SET revoked_at = UTC_TIMESTAMP(6)
+            WHERE session_hash = ?
+                AND revoked_at IS NULL
+            "#,
+        )
+        .bind(session_hash)
+        .execute(self.pool)
+        .await
+        .map(|_| ())
+        .map_err(|error| {
+            tracing::warn!(%error, "session revoke failed");
+            AuthRepositoryError::Database
+        })
+    }
 }
 
 #[derive(Debug)]

@@ -4,8 +4,8 @@ use crate::{
     app_state::AppState,
     auth::{
         dto::{
-            CurrentUserResponse, LoginRequest, LoginResponse, PublicUserResponse, RegisterRequest,
-            RegisterResponse,
+            CurrentUserResponse, LoginRequest, LoginResponse, LogoutResponse, PublicUserResponse,
+            RegisterRequest, RegisterResponse,
         },
         model::RegistrationMode,
         password::{hash_password, validate_password, verify_password, PasswordError},
@@ -190,6 +190,39 @@ impl<'a> CurrentUserService<'a> {
     }
 }
 
+pub struct LogoutService<'a> {
+    state: &'a AppState,
+}
+
+impl<'a> LogoutService<'a> {
+    pub fn new(state: &'a AppState) -> Self {
+        Self { state }
+    }
+
+    pub async fn logout(&self, session_token: Option<&str>) -> Result<LogoutResponse, LogoutError> {
+        let Some(session_token) = session_token else {
+            return Ok(LogoutResponse { logged_out: true });
+        };
+        let session_hash = hash_session_token(session_token).map_err(|_| LogoutError::Internal)?;
+        let pool = self.state.database.pool().ok_or_else(|| {
+            LogoutError::DatabaseUnavailable(
+                self.state
+                    .database
+                    .unavailable_reason()
+                    .unwrap_or("Database pool is not available")
+                    .to_string(),
+            )
+        })?;
+
+        AuthRepository::new(pool)
+            .revoke_session_by_hash(&session_hash)
+            .await
+            .map_err(LogoutError::from)?;
+
+        Ok(LogoutResponse { logged_out: true })
+    }
+}
+
 #[derive(Debug)]
 pub struct NewUser {
     pub public_id: String,
@@ -281,6 +314,23 @@ pub enum CurrentUserError {
     Banned,
     DatabaseUnavailable(String),
     Internal,
+}
+
+#[derive(Debug)]
+pub enum LogoutError {
+    DatabaseUnavailable(String),
+    Internal,
+}
+
+impl From<AuthRepositoryError> for LogoutError {
+    fn from(error: AuthRepositoryError) -> Self {
+        match error {
+            AuthRepositoryError::UserNameTaken => Self::Internal,
+            AuthRepositoryError::Database => {
+                Self::DatabaseUnavailable("Database operation failed".to_string())
+            }
+        }
+    }
 }
 
 impl From<AuthRepositoryError> for CurrentUserError {
@@ -415,6 +465,17 @@ pub fn session_cookie_value(session_token: &str, app_env: &str) -> String {
     cookie
 }
 
+pub fn clear_session_cookie_value(app_env: &str) -> String {
+    let secure = app_env.eq_ignore_ascii_case("production");
+    let mut cookie = format!("{SESSION_COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax");
+
+    if secure {
+        cookie.push_str("; Secure");
+    }
+
+    cookie
+}
+
 pub fn normalize_user_name(user_name: &str) -> String {
     user_name.trim().to_ascii_lowercase()
 }
@@ -518,6 +579,20 @@ mod tests {
         assert!(!development.contains("Secure"));
 
         let production = session_cookie_value("token", "production");
+        assert!(production.contains("Secure"));
+    }
+
+    #[test]
+    fn clear_session_cookie_expires_cookie() {
+        let development = clear_session_cookie_value("development");
+        assert!(development.starts_with("novastrum_session=;"));
+        assert!(development.contains("Max-Age=0"));
+        assert!(development.contains("Path=/"));
+        assert!(development.contains("HttpOnly"));
+        assert!(development.contains("SameSite=Lax"));
+        assert!(!development.contains("Secure"));
+
+        let production = clear_session_cookie_value("production");
         assert!(production.contains("Secure"));
     }
 

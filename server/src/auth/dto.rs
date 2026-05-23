@@ -31,6 +31,11 @@ pub struct CurrentUserResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct LogoutResponse {
+    pub logged_out: bool,
+}
+
+#[derive(Debug, Serialize)]
 pub struct PublicUserResponse {
     pub public_id: String,
     pub user_name: String,

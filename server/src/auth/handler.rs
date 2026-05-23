@@ -10,8 +10,9 @@ use crate::{
     auth::{
         dto::{LoginRequest, RegisterRequest},
         service::{
-            session_cookie_value, CurrentUserError, CurrentUserService, LoginError, LoginService,
-            RegisterError, RegisterService, SESSION_COOKIE_NAME,
+            clear_session_cookie_value, session_cookie_value, CurrentUserError, CurrentUserService,
+            LoginError, LoginService, LogoutError, LogoutService, RegisterError, RegisterService,
+            SESSION_COOKIE_NAME,
         },
     },
     http::response::{ApiErrorPayload, ApiResponse},
@@ -31,17 +32,8 @@ pub async fn login(State(state): State<AppState>, Json(request): Json<LoginReque
     match LoginService::new(&state).login(request).await {
         Ok(result) => {
             let cookie = session_cookie_value(&result.session_token, &state.config.app_env);
-            let mut response = success(StatusCode::OK, "auth.login", result.response);
-            match HeaderValue::from_str(&cookie) {
-                Ok(value) => {
-                    response.headers_mut().insert(SET_COOKIE, value);
-                    response
-                }
-                Err(error) => {
-                    tracing::warn!(%error, "failed to build session cookie");
-                    internal_error_response()
-                }
-            }
+            let response = success(StatusCode::OK, "auth.login", result.response);
+            response_with_cookie(response, &cookie, "failed to build session cookie")
         }
         Err(error) => login_error_response(error),
     }
@@ -57,6 +49,25 @@ pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
         Ok(response) => success(StatusCode::OK, "auth.me", response),
         Err(error) => current_user_error_response(error),
     }
+}
+
+pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let session_token = session_token_from_headers(&headers);
+    let clear_cookie = clear_session_cookie_value(&state.config.app_env);
+
+    let response = match LogoutService::new(&state)
+        .logout(session_token.as_deref())
+        .await
+    {
+        Ok(response) => success(StatusCode::OK, "auth.logout", response),
+        Err(error) => logout_error_response(error),
+    };
+
+    response_with_cookie(
+        response,
+        &clear_cookie,
+        "failed to build clearing session cookie",
+    )
 }
 
 fn success<T: serde::Serialize>(
@@ -183,6 +194,23 @@ fn current_user_error_response(error: CurrentUserError) -> Response {
     error_response(status, response_type, payload)
 }
 
+fn logout_error_response(error: LogoutError) -> Response {
+    let (status, response_type, payload) = match error {
+        LogoutError::DatabaseUnavailable(message) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "error.database",
+            ApiErrorPayload::new("database_unavailable", message),
+        ),
+        LogoutError::Internal => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error.system",
+            ApiErrorPayload::new("internal_error", "Logout failed"),
+        ),
+    };
+
+    error_response(status, response_type, payload)
+}
+
 fn error_response(
     status: StatusCode,
     response_type: &'static str,
@@ -198,11 +226,28 @@ fn error_response(
         .into_response()
 }
 
-fn internal_error_response() -> Response {
+fn response_with_cookie(
+    mut response: Response,
+    cookie: &str,
+    log_message: &'static str,
+) -> Response {
+    match HeaderValue::from_str(cookie) {
+        Ok(value) => {
+            response.headers_mut().insert(SET_COOKIE, value);
+            response
+        }
+        Err(error) => {
+            tracing::warn!(%error, log_message);
+            internal_error_response("Request failed")
+        }
+    }
+}
+
+fn internal_error_response(message: &'static str) -> Response {
     error_response(
         StatusCode::INTERNAL_SERVER_ERROR,
         "error.system",
-        ApiErrorPayload::new("internal_error", "Login failed"),
+        ApiErrorPayload::new("internal_error", message),
     )
 }
 
