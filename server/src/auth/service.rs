@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use crate::{
     app_state::AppState,
     auth::{
+        current_user::{AuthError, AuthenticatedUser, CurrentUserAuth},
         dto::{
             CurrentUserResponse, LoginRequest, LoginResponse, LogoutResponse, PublicUserResponse,
             RegisterRequest, RegisterResponse,
@@ -140,44 +141,17 @@ impl<'a> LoginService<'a> {
     }
 }
 
-pub struct CurrentUserService<'a> {
-    state: &'a AppState,
-}
+pub struct CurrentUserService;
 
-impl<'a> CurrentUserService<'a> {
-    pub fn new(state: &'a AppState) -> Self {
-        Self { state }
+impl CurrentUserService {
+    pub fn new() -> Self {
+        Self
     }
 
     pub async fn current_user(
         &self,
-        session_token: Option<&str>,
+        user: AuthenticatedUser,
     ) -> Result<CurrentUserResponse, CurrentUserError> {
-        let session_token = session_token.ok_or(CurrentUserError::AuthRequired)?;
-        let session_hash =
-            hash_session_token(session_token).map_err(|_| CurrentUserError::AuthRequired)?;
-        let pool = self.state.database.pool().ok_or_else(|| {
-            CurrentUserError::DatabaseUnavailable(
-                self.state
-                    .database
-                    .unavailable_reason()
-                    .unwrap_or("Database pool is not available")
-                    .to_string(),
-            )
-        })?;
-
-        let Some(user) = AuthRepository::new(pool)
-            .find_current_user_by_session_hash(&session_hash)
-            .await
-            .map_err(CurrentUserError::from)?
-        else {
-            return Err(CurrentUserError::AuthRequired);
-        };
-
-        if let Some(error) = current_user_status_error(user.status) {
-            return Err(error);
-        }
-
         Ok(CurrentUserResponse {
             user: PublicUserResponse {
                 public_id: user.public_id,
@@ -188,6 +162,16 @@ impl<'a> CurrentUserService<'a> {
             },
         })
     }
+}
+
+pub async fn authenticate_current_user(
+    state: &AppState,
+    headers: &axum::http::HeaderMap,
+) -> Result<AuthenticatedUser, CurrentUserError> {
+    CurrentUserAuth::new(state)
+        .authenticate_headers(headers)
+        .await
+        .map_err(CurrentUserError::from)
 }
 
 pub struct LogoutService<'a> {
@@ -240,15 +224,6 @@ pub struct LoginUser {
     pub user_name: String,
     pub public_name: String,
     pub password_hash: String,
-    pub status: UserStatus,
-    pub dm_policy: DmPolicy,
-}
-
-#[derive(Debug)]
-pub struct CurrentUser {
-    pub public_id: String,
-    pub user_name: String,
-    pub public_name: String,
     pub status: UserStatus,
     pub dm_policy: DmPolicy,
 }
@@ -340,6 +315,18 @@ impl From<AuthRepositoryError> for CurrentUserError {
             AuthRepositoryError::Database => {
                 Self::DatabaseUnavailable("Database operation failed".to_string())
             }
+        }
+    }
+}
+
+impl From<AuthError> for CurrentUserError {
+    fn from(error: AuthError) -> Self {
+        match error {
+            AuthError::AuthRequired => Self::AuthRequired,
+            AuthError::PendingApproval => Self::PendingApproval,
+            AuthError::Banned => Self::Banned,
+            AuthError::DatabaseUnavailable(message) => Self::DatabaseUnavailable(message),
+            AuthError::Internal => Self::Internal,
         }
     }
 }
@@ -440,15 +427,6 @@ pub fn login_status_error(status: UserStatus) -> Option<LoginError> {
         UserStatus::Pending => Some(LoginError::PendingApproval),
         UserStatus::Banned => Some(LoginError::Banned),
         UserStatus::Deleted => Some(LoginError::InvalidCredentials),
-    }
-}
-
-pub fn current_user_status_error(status: UserStatus) -> Option<CurrentUserError> {
-    match status {
-        UserStatus::Active | UserStatus::Suspended => None,
-        UserStatus::Pending => Some(CurrentUserError::PendingApproval),
-        UserStatus::Banned => Some(CurrentUserError::Banned),
-        UserStatus::Deleted => Some(CurrentUserError::AuthRequired),
     }
 }
 
@@ -594,23 +572,5 @@ mod tests {
 
         let production = clear_session_cookie_value("production");
         assert!(production.contains("Secure"));
-    }
-
-    #[test]
-    fn applies_current_user_status_policy() {
-        assert!(current_user_status_error(UserStatus::Active).is_none());
-        assert!(current_user_status_error(UserStatus::Suspended).is_none());
-        assert!(matches!(
-            current_user_status_error(UserStatus::Pending),
-            Some(CurrentUserError::PendingApproval)
-        ));
-        assert!(matches!(
-            current_user_status_error(UserStatus::Banned),
-            Some(CurrentUserError::Banned)
-        ));
-        assert!(matches!(
-            current_user_status_error(UserStatus::Deleted),
-            Some(CurrentUserError::AuthRequired)
-        ));
     }
 }

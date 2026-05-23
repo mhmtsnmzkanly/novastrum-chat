@@ -1,7 +1,10 @@
 use sqlx::{MySqlPool, Row};
 
 use crate::{
-    auth::service::{CurrentUser, LoginUser, NewSession, NewUser},
+    auth::{
+        current_user::AuthenticatedUser,
+        service::{LoginUser, NewSession, NewUser},
+    },
     users::model::{DmPolicy, UserStatus},
 };
 
@@ -139,13 +142,14 @@ impl<'a> AuthRepository<'a> {
         })
     }
 
-    pub async fn find_current_user_by_session_hash(
+    pub async fn find_authenticated_user_by_session_hash(
         &self,
         session_hash: &str,
-    ) -> Result<Option<CurrentUser>, AuthRepositoryError> {
+    ) -> Result<Option<AuthenticatedUser>, AuthRepositoryError> {
         let row = sqlx::query(
             r#"
             SELECT
+                users.id,
                 users.public_id,
                 users.user_name,
                 users.public_name,
@@ -186,7 +190,8 @@ impl<'a> AuthRepository<'a> {
                 AuthRepositoryError::Database
             })?;
 
-        Ok(Some(CurrentUser {
+        Ok(Some(AuthenticatedUser {
+            id: row.get("id"),
             public_id: row.get("public_id"),
             user_name: row.get("user_name"),
             public_name: row.get("public_name"),

@@ -8,11 +8,12 @@ use axum::{
 use crate::{
     app_state::AppState,
     auth::{
+        current_user::session_token_from_headers,
         dto::{LoginRequest, RegisterRequest},
         service::{
-            clear_session_cookie_value, session_cookie_value, CurrentUserError, CurrentUserService,
-            LoginError, LoginService, LogoutError, LogoutService, RegisterError, RegisterService,
-            SESSION_COOKIE_NAME,
+            authenticate_current_user, clear_session_cookie_value, session_cookie_value,
+            CurrentUserError, CurrentUserService, LoginError, LoginService, LogoutError,
+            LogoutService, RegisterError, RegisterService,
         },
     },
     http::response::{ApiErrorPayload, ApiResponse},
@@ -40,13 +41,11 @@ pub async fn login(State(state): State<AppState>, Json(request): Json<LoginReque
 }
 
 pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
-    let session_token = session_token_from_headers(&headers);
-
-    match CurrentUserService::new(&state)
-        .current_user(session_token.as_deref())
-        .await
-    {
-        Ok(response) => success(StatusCode::OK, "auth.me", response),
+    match authenticate_current_user(&state, &headers).await {
+        Ok(user) => match CurrentUserService::new().current_user(user).await {
+            Ok(response) => success(StatusCode::OK, "auth.me", response),
+            Err(error) => current_user_error_response(error),
+        },
         Err(error) => current_user_error_response(error),
     }
 }
@@ -249,13 +248,4 @@ fn internal_error_response(message: &'static str) -> Response {
         "error.system",
         ApiErrorPayload::new("internal_error", message),
     )
-}
-
-fn session_token_from_headers(headers: &HeaderMap) -> Option<String> {
-    let cookie_header = headers.get(axum::http::header::COOKIE)?.to_str().ok()?;
-
-    cookie_header.split(';').find_map(|part| {
-        let (name, value) = part.trim().split_once('=')?;
-        (name == SESSION_COOKIE_NAME && !value.is_empty()).then(|| value.to_string())
-    })
 }

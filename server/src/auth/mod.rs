@@ -1,3 +1,4 @@
+pub mod current_user;
 pub mod dto;
 pub mod handler;
 pub mod model;
