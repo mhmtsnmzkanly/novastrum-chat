@@ -1,6 +1,7 @@
 mod app;
 mod app_state;
 mod auth;
+mod chat;
 mod config;
 mod db;
 mod error;
