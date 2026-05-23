@@ -1,7 +1,7 @@
 use sqlx::{MySqlPool, Row};
 
 use crate::{
-    auth::service::{LoginUser, NewSession, NewUser},
+    auth::service::{CurrentUser, LoginUser, NewSession, NewUser},
     users::model::{DmPolicy, UserStatus},
 };
 
@@ -137,6 +137,62 @@ impl<'a> AuthRepository<'a> {
             tracing::warn!(%error, "session insert failed");
             AuthRepositoryError::Database
         })
+    }
+
+    pub async fn find_current_user_by_session_hash(
+        &self,
+        session_hash: &str,
+    ) -> Result<Option<CurrentUser>, AuthRepositoryError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                users.public_id,
+                users.user_name,
+                users.public_name,
+                users.status,
+                users.dm_policy
+            FROM sessions
+            INNER JOIN users ON users.id = sessions.user_id
+            WHERE sessions.session_hash = ?
+                AND sessions.revoked_at IS NULL
+                AND sessions.expires_at > UTC_TIMESTAMP(6)
+            LIMIT 1
+            "#,
+        )
+        .bind(session_hash)
+        .fetch_optional(self.pool)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "current user lookup failed");
+            AuthRepositoryError::Database
+        })?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let status = row
+            .get::<String, _>("status")
+            .parse::<UserStatus>()
+            .map_err(|error| {
+                tracing::warn!(%error, "user row has invalid status");
+                AuthRepositoryError::Database
+            })?;
+        let dm_policy = row
+            .get::<String, _>("dm_policy")
+            .parse::<DmPolicy>()
+            .map_err(|error| {
+                tracing::warn!(%error, "user row has invalid dm_policy");
+                AuthRepositoryError::Database
+            })?;
+
+        Ok(Some(CurrentUser {
+            public_id: row.get("public_id"),
+            user_name: row.get("user_name"),
+            public_name: row.get("public_name"),
+            status,
+            dm_policy,
+        }))
     }
 }
 

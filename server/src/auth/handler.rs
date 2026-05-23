@@ -1,6 +1,6 @@
 use axum::{
     extract::State,
-    http::{header::SET_COOKIE, HeaderValue, StatusCode},
+    http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -9,7 +9,10 @@ use crate::{
     app_state::AppState,
     auth::{
         dto::{LoginRequest, RegisterRequest},
-        service::{session_cookie_value, LoginError, LoginService, RegisterError, RegisterService},
+        service::{
+            session_cookie_value, CurrentUserError, CurrentUserService, LoginError, LoginService,
+            RegisterError, RegisterService, SESSION_COOKIE_NAME,
+        },
     },
     http::response::{ApiErrorPayload, ApiResponse},
 };
@@ -41,6 +44,18 @@ pub async fn login(State(state): State<AppState>, Json(request): Json<LoginReque
             }
         }
         Err(error) => login_error_response(error),
+    }
+}
+
+pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let session_token = session_token_from_headers(&headers);
+
+    match CurrentUserService::new(&state)
+        .current_user(session_token.as_deref())
+        .await
+    {
+        Ok(response) => success(StatusCode::OK, "auth.me", response),
+        Err(error) => current_user_error_response(error),
     }
 }
 
@@ -136,6 +151,38 @@ fn login_error_response(error: LoginError) -> Response {
     error_response(status, response_type, payload)
 }
 
+fn current_user_error_response(error: CurrentUserError) -> Response {
+    let (status, response_type, payload) = match error {
+        CurrentUserError::AuthRequired => (
+            StatusCode::UNAUTHORIZED,
+            "error.auth",
+            ApiErrorPayload::new("auth_required", "Authentication is required"),
+        ),
+        CurrentUserError::PendingApproval => (
+            StatusCode::FORBIDDEN,
+            "error.auth",
+            ApiErrorPayload::new("pending_approval", "Account is pending approval"),
+        ),
+        CurrentUserError::Banned => (
+            StatusCode::FORBIDDEN,
+            "error.auth",
+            ApiErrorPayload::new("banned", "Account is banned"),
+        ),
+        CurrentUserError::DatabaseUnavailable(message) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "error.database",
+            ApiErrorPayload::new("database_unavailable", message),
+        ),
+        CurrentUserError::Internal => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error.system",
+            ApiErrorPayload::new("internal_error", "Current user lookup failed"),
+        ),
+    };
+
+    error_response(status, response_type, payload)
+}
+
 fn error_response(
     status: StatusCode,
     response_type: &'static str,
@@ -157,4 +204,13 @@ fn internal_error_response() -> Response {
         "error.system",
         ApiErrorPayload::new("internal_error", "Login failed"),
     )
+}
+
+fn session_token_from_headers(headers: &HeaderMap) -> Option<String> {
+    let cookie_header = headers.get(axum::http::header::COOKIE)?.to_str().ok()?;
+
+    cookie_header.split(';').find_map(|part| {
+        let (name, value) = part.trim().split_once('=')?;
+        (name == SESSION_COOKIE_NAME && !value.is_empty()).then(|| value.to_string())
+    })
 }

@@ -26,6 +26,11 @@ pub struct LoginResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct CurrentUserResponse {
+    pub user: PublicUserResponse,
+}
+
+#[derive(Debug, Serialize)]
 pub struct PublicUserResponse {
     pub public_id: String,
     pub user_name: String,
