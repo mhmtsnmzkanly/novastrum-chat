@@ -9,7 +9,10 @@ use crate::{
     app_state::AppState,
     auth::service::{authenticate_current_user, CurrentUserError},
     chat::{
-        dto::{CreateDirectConversationRequest, MessageHistoryQuery, SendMessageRequest},
+        dto::{
+            ConversationListQuery, CreateDirectConversationRequest, MessageHistoryQuery,
+            SendMessageRequest,
+        },
         service::{ChatService, ChatServiceError},
     },
     http::response::{ApiErrorPayload, ApiResponse},
@@ -30,6 +33,25 @@ pub async fn create_direct_conversation(
         .await
     {
         Ok(response) => success(StatusCode::OK, "chat.conversation.direct", response),
+        Err(error) => chat_error_response(error),
+    }
+}
+
+pub async fn list_conversations(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<ConversationListQuery>,
+) -> Response {
+    let requester = match authenticate_current_user(&state, &headers).await {
+        Ok(user) => user,
+        Err(error) => return auth_error_response(error),
+    };
+
+    match ChatService::new(&state)
+        .list_conversations(requester, query)
+        .await
+    {
+        Ok(response) => success(StatusCode::OK, "chat.conversations.list", response),
         Err(error) => chat_error_response(error),
     }
 }

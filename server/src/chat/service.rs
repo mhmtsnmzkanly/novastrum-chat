@@ -9,6 +9,8 @@ use crate::{
     },
     chat::{
         dto::{
+            ConversationLatestMessageResponse, ConversationListItemResponse, ConversationListPage,
+            ConversationListQuery, ConversationListResponse, ConversationListUserResponse,
             ConversationResponse, CreateDirectConversationRequest, DirectConversationResponse,
             HistoryMessageResponse, MessageHistoryPage, MessageHistoryQuery,
             MessageHistoryResponse, MessageResponse, MessageSenderResponse, SendMessageRequest,
@@ -16,8 +18,9 @@ use crate::{
         },
         model::{canonical_direct_pair, MembershipRole, MembershipStatus, MessageType},
         repository::{
-            ChatConversation, ChatHistoryMessage, ChatMessage, ChatRepository, ChatRepositoryError,
-            ChatUser, NewConversationMembership, NewDirectConversation, NewMessage,
+            ChatConversation, ChatConversationListItem, ChatHistoryMessage, ChatMessage,
+            ChatRepository, ChatRepositoryError, ChatUser, NewConversationMembership,
+            NewDirectConversation, NewMessage,
         },
     },
     public_id::{generate_public_id, PublicIdPrefix},
@@ -27,6 +30,8 @@ use crate::{
 const MAX_MESSAGE_BODY_CHARS: usize = 4_000;
 const DEFAULT_HISTORY_LIMIT: u32 = 50;
 const MAX_HISTORY_LIMIT: u32 = 100;
+const DEFAULT_CONVERSATION_LIST_LIMIT: u32 = 50;
+const MAX_CONVERSATION_LIST_LIMIT: u32 = 100;
 
 pub struct ChatService<'a> {
     state: &'a AppState,
@@ -222,6 +227,51 @@ impl<'a> ChatService<'a> {
             },
         })
     }
+
+    pub async fn list_conversations(
+        &self,
+        requester: AuthenticatedUser,
+        query: ConversationListQuery,
+    ) -> Result<ConversationListResponse, ChatServiceError> {
+        let limit = parse_conversation_list_limit(query.limit)?;
+        let kind = parse_conversation_kind_filter(query.kind)?;
+        if query.before.is_some_and(|before| !before.trim().is_empty()) {
+            return Err(validation_error(
+                "before",
+                "conversation cursor pagination is deferred",
+            ));
+        }
+
+        let pool = self.state.database.pool().ok_or_else(|| {
+            ChatServiceError::DatabaseUnavailable(
+                self.state
+                    .database
+                    .unavailable_reason()
+                    .unwrap_or("Database pool is not available")
+                    .to_string(),
+            )
+        })?;
+        let repository = ChatRepository::new(pool);
+        let conversations = repository
+            .list_conversations_for_user(requester.id, kind, limit)
+            .await
+            .map_err(ChatServiceError::from)?;
+
+        let mut items = Vec::with_capacity(conversations.len());
+        for conversation in conversations {
+            items.push(
+                to_conversation_list_item_response(&repository, requester.id, conversation).await?,
+            );
+        }
+
+        Ok(ConversationListResponse {
+            items,
+            page: ConversationListPage {
+                next_cursor: None,
+                has_more: false,
+            },
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -307,6 +357,38 @@ pub fn parse_history_limit(limit: Option<String>) -> Result<u32, ChatServiceErro
         Ok(value) => Ok(value.min(MAX_HISTORY_LIMIT)),
         Err(_) => Err(validation_error("limit", "must be a number")),
     }
+}
+
+pub fn parse_conversation_list_limit(limit: Option<String>) -> Result<u32, ChatServiceError> {
+    let Some(limit) = limit else {
+        return Ok(DEFAULT_CONVERSATION_LIST_LIMIT);
+    };
+    let limit = limit.trim();
+    if limit.is_empty() {
+        return Err(validation_error("limit", "must be a number"));
+    }
+
+    match limit.parse::<u32>() {
+        Ok(0) => Err(validation_error("limit", "must be at least 1")),
+        Ok(value) => Ok(value.min(MAX_CONVERSATION_LIST_LIMIT)),
+        Err(_) => Err(validation_error("limit", "must be a number")),
+    }
+}
+
+pub fn parse_conversation_kind_filter(
+    kind: Option<String>,
+) -> Result<Option<crate::chat::model::ConversationKind>, ChatServiceError> {
+    let Some(kind) = kind else {
+        return Ok(None);
+    };
+    let kind = kind.trim();
+    if kind.is_empty() {
+        return Err(validation_error("kind", "must be direct or group"));
+    }
+
+    kind.parse()
+        .map(Some)
+        .map_err(|_| validation_error("kind", "must be direct or group"))
 }
 
 fn validation_error(field: &'static str, message: impl Into<String>) -> ChatServiceError {
@@ -437,6 +519,70 @@ fn to_history_message_response(message: ChatHistoryMessage) -> HistoryMessageRes
     }
 }
 
+async fn to_conversation_list_item_response(
+    repository: &ChatRepository<'_>,
+    current_user_id: u64,
+    conversation: ChatConversationListItem,
+) -> Result<ConversationListItemResponse, ChatServiceError> {
+    let target_user = if conversation.kind == crate::chat::model::ConversationKind::Direct {
+        repository
+            .find_direct_target_user(conversation.id, current_user_id)
+            .await
+            .map_err(ChatServiceError::from)?
+            .map(to_conversation_list_user_response)
+    } else {
+        None
+    };
+
+    let member_count = if conversation.kind == crate::chat::model::ConversationKind::Group {
+        Some(
+            repository
+                .count_active_members(conversation.id)
+                .await
+                .map_err(ChatServiceError::from)?,
+        )
+    } else {
+        None
+    };
+
+    let latest_message = repository
+        .find_latest_visible_message(conversation.id, conversation.visible_from_message_id)
+        .await
+        .map_err(ChatServiceError::from)?
+        .map(to_latest_message_response);
+
+    Ok(ConversationListItemResponse {
+        public_id: conversation.public_id,
+        kind: conversation.kind.as_str(),
+        title: conversation.title,
+        target_user,
+        member_count,
+        latest_message,
+    })
+}
+
+fn to_conversation_list_user_response(user: ChatUser) -> ConversationListUserResponse {
+    ConversationListUserResponse {
+        public_id: user.public_id,
+        user_name: user.user_name,
+        public_name: user.public_name,
+        status: user.status,
+    }
+}
+
+fn to_latest_message_response(message: ChatHistoryMessage) -> ConversationLatestMessageResponse {
+    ConversationLatestMessageResponse {
+        public_id: message.public_id,
+        body: message.body,
+        created_at: message.created_at,
+        sender: MessageSenderResponse {
+            public_id: message.sender_public_id,
+            user_name: message.sender_user_name,
+            public_name: message.sender_public_name,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -541,6 +687,43 @@ mod tests {
         ));
         assert!(matches!(
             parse_history_limit(Some("abc".to_string())),
+            Err(ChatServiceError::Validation(_))
+        ));
+    }
+
+    #[test]
+    fn parses_conversation_list_limit_with_default_and_cap() {
+        assert_eq!(
+            parse_conversation_list_limit(None).unwrap(),
+            DEFAULT_CONVERSATION_LIST_LIMIT
+        );
+        assert_eq!(
+            parse_conversation_list_limit(Some("25".to_string())).unwrap(),
+            25
+        );
+        assert_eq!(
+            parse_conversation_list_limit(Some("500".to_string())).unwrap(),
+            MAX_CONVERSATION_LIST_LIMIT
+        );
+        assert!(matches!(
+            parse_conversation_list_limit(Some("0".to_string())),
+            Err(ChatServiceError::Validation(_))
+        ));
+    }
+
+    #[test]
+    fn parses_conversation_kind_filter() {
+        assert_eq!(parse_conversation_kind_filter(None).unwrap(), None);
+        assert_eq!(
+            parse_conversation_kind_filter(Some("direct".to_string())).unwrap(),
+            Some(crate::chat::model::ConversationKind::Direct)
+        );
+        assert_eq!(
+            parse_conversation_kind_filter(Some("group".to_string())).unwrap(),
+            Some(crate::chat::model::ConversationKind::Group)
+        );
+        assert!(matches!(
+            parse_conversation_kind_filter(Some("public".to_string())),
             Err(ChatServiceError::Validation(_))
         ));
     }

@@ -383,6 +383,147 @@ impl<'a> ChatRepository<'a> {
             .map(chat_history_message_from_row)
             .collect()
     }
+
+    pub async fn list_conversations_for_user(
+        &self,
+        user_id: u64,
+        kind: Option<ConversationKind>,
+        limit: u32,
+    ) -> Result<Vec<ChatConversationListItem>, ChatRepositoryError> {
+        let rows = match kind {
+            Some(kind) => {
+                sqlx::query(
+                    r#"
+                    SELECT
+                        conversations.id,
+                        conversations.public_id,
+                        conversations.kind,
+                        conversations.title,
+                        conversation_memberships.visible_from_message_id
+                    FROM conversation_memberships
+                    INNER JOIN conversations
+                        ON conversations.id = conversation_memberships.conversation_id
+                    WHERE conversation_memberships.user_id = ?
+                        AND conversation_memberships.status = 'active'
+                        AND conversations.deleted_at IS NULL
+                        AND conversations.kind = ?
+                    ORDER BY conversations.updated_at DESC, conversations.id DESC
+                    LIMIT ?
+                    "#,
+                )
+                .bind(user_id)
+                .bind(kind.as_str())
+                .bind(limit)
+                .fetch_all(self.pool)
+                .await
+            }
+            None => {
+                sqlx::query(
+                    r#"
+                    SELECT
+                        conversations.id,
+                        conversations.public_id,
+                        conversations.kind,
+                        conversations.title,
+                        conversation_memberships.visible_from_message_id
+                    FROM conversation_memberships
+                    INNER JOIN conversations
+                        ON conversations.id = conversation_memberships.conversation_id
+                    WHERE conversation_memberships.user_id = ?
+                        AND conversation_memberships.status = 'active'
+                        AND conversations.deleted_at IS NULL
+                    ORDER BY conversations.updated_at DESC, conversations.id DESC
+                    LIMIT ?
+                    "#,
+                )
+                .bind(user_id)
+                .bind(limit)
+                .fetch_all(self.pool)
+                .await
+            }
+        }
+        .map_err(|error| {
+            tracing::warn!(%error, "conversation list lookup failed");
+            ChatRepositoryError::Database
+        })?;
+
+        rows.into_iter()
+            .map(chat_conversation_list_item_from_row)
+            .collect()
+    }
+
+    pub async fn find_direct_target_user(
+        &self,
+        conversation_id: u64,
+        current_user_id: u64,
+    ) -> Result<Option<ChatUser>, ChatRepositoryError> {
+        let row = sqlx::query(
+            r#"
+            SELECT users.id, users.public_id, users.user_name, users.public_name, users.status, users.dm_policy
+            FROM conversation_memberships
+            INNER JOIN users
+                ON users.id = conversation_memberships.user_id
+            WHERE conversation_memberships.conversation_id = ?
+                AND conversation_memberships.user_id <> ?
+                AND conversation_memberships.status = 'active'
+            ORDER BY conversation_memberships.id ASC
+            LIMIT 1
+            "#,
+        )
+        .bind(conversation_id)
+        .bind(current_user_id)
+        .fetch_optional(self.pool)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "direct target user lookup failed");
+            ChatRepositoryError::Database
+        })?;
+
+        row.map(chat_user_from_row).transpose()
+    }
+
+    pub async fn count_active_members(
+        &self,
+        conversation_id: u64,
+    ) -> Result<u64, ChatRepositoryError> {
+        let row = sqlx::query(
+            r#"
+            SELECT COUNT(*) AS member_count
+            FROM conversation_memberships
+            WHERE conversation_id = ?
+                AND status = 'active'
+            "#,
+        )
+        .bind(conversation_id)
+        .fetch_one(self.pool)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "active member count failed");
+            ChatRepositoryError::Database
+        })?;
+
+        let member_count: i64 = row.get("member_count");
+        Ok(member_count.try_into().unwrap_or(0))
+    }
+
+    pub async fn find_latest_visible_message(
+        &self,
+        conversation_id: u64,
+        visible_after_message_id: u64,
+    ) -> Result<Option<ChatHistoryMessage>, ChatRepositoryError> {
+        let query = history_messages_query("", "ORDER BY messages.id DESC LIMIT 1");
+        let row = sqlx::query(&query)
+            .bind(conversation_id)
+            .bind(visible_after_message_id)
+            .fetch_optional(self.pool)
+            .await
+            .map_err(|error| {
+                tracing::warn!(%error, "latest visible message lookup failed");
+                ChatRepositoryError::Database
+            })?;
+
+        row.map(chat_history_message_from_row).transpose()
+    }
 }
 
 #[derive(Debug)]
@@ -466,6 +607,15 @@ pub struct ChatHistoryMessage {
     pub message_type: MessageType,
     pub created_at: String,
     pub deleted_at: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct ChatConversationListItem {
+    pub id: u64,
+    pub public_id: String,
+    pub kind: ConversationKind,
+    pub title: Option<String>,
+    pub visible_from_message_id: u64,
 }
 
 #[derive(Debug)]
@@ -603,6 +753,26 @@ fn chat_history_message_from_row(
         message_type,
         created_at: row.get("created_at"),
         deleted_at: row.get("deleted_at"),
+    })
+}
+
+fn chat_conversation_list_item_from_row(
+    row: sqlx::mysql::MySqlRow,
+) -> Result<ChatConversationListItem, ChatRepositoryError> {
+    let kind = row
+        .get::<String, _>("kind")
+        .parse::<ConversationKind>()
+        .map_err(|error| {
+            tracing::warn!(%error, "conversation list row has invalid kind");
+            ChatRepositoryError::Database
+        })?;
+
+    Ok(ChatConversationListItem {
+        id: row.get("id"),
+        public_id: row.get("public_id"),
+        kind,
+        title: row.get("title"),
+        visible_from_message_id: row.get("visible_from_message_id"),
     })
 }
 
