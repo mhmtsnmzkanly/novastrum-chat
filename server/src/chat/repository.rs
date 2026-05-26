@@ -3,7 +3,7 @@
 use sqlx::{MySql, MySqlPool, Row, Transaction};
 
 use crate::{
-    chat::model::{ConversationKind, MembershipRole, MembershipStatus},
+    chat::model::{ConversationKind, MembershipRole, MembershipStatus, MessageType},
     users::model::{DmPolicy, UserStatus},
 };
 
@@ -180,6 +180,142 @@ impl<'a> ChatRepository<'a> {
             title: None,
         })
     }
+
+    pub async fn find_conversation_by_public_id(
+        &self,
+        public_id: &str,
+    ) -> Result<Option<ChatConversation>, ChatRepositoryError> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, public_id, kind, title
+            FROM conversations
+            WHERE public_id = ?
+                AND deleted_at IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(public_id)
+        .fetch_optional(self.pool)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "conversation lookup failed");
+            ChatRepositoryError::Database
+        })?;
+
+        row.map(chat_conversation_from_row).transpose()
+    }
+
+    pub async fn find_active_membership(
+        &self,
+        conversation_id: u64,
+        user_id: u64,
+    ) -> Result<Option<ChatMembership>, ChatRepositoryError> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, conversation_id, user_id, role, status, visible_from_message_id
+            FROM conversation_memberships
+            WHERE conversation_id = ?
+                AND user_id = ?
+                AND status = 'active'
+            ORDER BY id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(conversation_id)
+        .bind(user_id)
+        .fetch_optional(self.pool)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "active membership lookup failed");
+            ChatRepositoryError::Database
+        })?;
+
+        row.map(chat_membership_from_row).transpose()
+    }
+
+    pub async fn insert_message(
+        &self,
+        new_message: NewMessage,
+    ) -> Result<ChatMessage, ChatRepositoryError> {
+        let mut tx = self.pool.begin().await.map_err(|error| {
+            tracing::warn!(%error, "send message transaction begin failed");
+            ChatRepositoryError::Database
+        })?;
+
+        let message_result = sqlx::query(
+            r#"
+            INSERT INTO messages (
+                public_id, conversation_id, sender_id, body, message_type, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP(6))
+            "#,
+        )
+        .bind(&new_message.public_id)
+        .bind(new_message.conversation_id)
+        .bind(new_message.sender_id)
+        .bind(&new_message.body)
+        .bind(new_message.message_type.as_str())
+        .execute(&mut *tx)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "message insert failed");
+            ChatRepositoryError::Database
+        })?;
+        let message_id = message_result.last_insert_id();
+
+        sqlx::query(
+            r#"
+            UPDATE conversations
+            SET updated_at = UTC_TIMESTAMP(6)
+            WHERE id = ?
+            "#,
+        )
+        .bind(new_message.conversation_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "conversation updated_at touch failed");
+            ChatRepositoryError::Database
+        })?;
+
+        let row = sqlx::query(
+            r#"
+            SELECT
+                messages.id,
+                messages.public_id,
+                messages.conversation_id,
+                conversations.public_id AS conversation_public_id,
+                messages.sender_id,
+                users.public_id AS sender_public_id,
+                users.user_name AS sender_user_name,
+                users.public_name AS sender_public_name,
+                messages.body,
+                messages.message_type,
+                DATE_FORMAT(messages.created_at, '%Y-%m-%dT%H:%i:%s.%fZ') AS created_at
+            FROM messages
+            INNER JOIN conversations
+                ON conversations.id = messages.conversation_id
+            INNER JOIN users
+                ON users.id = messages.sender_id
+            WHERE messages.id = ?
+            LIMIT 1
+            "#,
+        )
+        .bind(message_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "inserted message fetch failed");
+            ChatRepositoryError::Database
+        })?;
+
+        tx.commit().await.map_err(|error| {
+            tracing::warn!(%error, "send message transaction commit failed");
+            ChatRepositoryError::Database
+        })?;
+
+        chat_message_from_row(row)
+    }
 }
 
 #[derive(Debug)]
@@ -204,12 +340,52 @@ pub struct NewDirectConversation {
 }
 
 #[derive(Debug)]
+pub struct NewMessage {
+    pub public_id: String,
+    pub conversation_id: u64,
+    pub sender_id: u64,
+    pub body: String,
+    pub message_type: MessageType,
+}
+
+#[derive(Debug)]
 pub struct ChatConversation {
-    #[allow(dead_code)]
     pub id: u64,
     pub public_id: String,
     pub kind: ConversationKind,
     pub title: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct ChatMembership {
+    #[allow(dead_code)]
+    pub id: u64,
+    #[allow(dead_code)]
+    pub conversation_id: u64,
+    #[allow(dead_code)]
+    pub user_id: u64,
+    #[allow(dead_code)]
+    pub role: MembershipRole,
+    #[allow(dead_code)]
+    pub status: MembershipStatus,
+    #[allow(dead_code)]
+    pub visible_from_message_id: u64,
+}
+
+#[derive(Debug)]
+pub struct ChatMessage {
+    #[allow(dead_code)]
+    pub id: u64,
+    pub public_id: String,
+    pub conversation_public_id: String,
+    #[allow(dead_code)]
+    pub sender_id: u64,
+    pub sender_public_id: String,
+    pub sender_user_name: String,
+    pub sender_public_name: String,
+    pub body: String,
+    pub message_type: MessageType,
+    pub created_at: String,
 }
 
 #[derive(Debug)]
@@ -271,6 +447,57 @@ fn chat_conversation_from_row(
         public_id: row.get("public_id"),
         kind,
         title: row.get("title"),
+    })
+}
+
+fn chat_membership_from_row(
+    row: sqlx::mysql::MySqlRow,
+) -> Result<ChatMembership, ChatRepositoryError> {
+    let role = row
+        .get::<String, _>("role")
+        .parse::<MembershipRole>()
+        .map_err(|error| {
+            tracing::warn!(%error, "membership row has invalid role");
+            ChatRepositoryError::Database
+        })?;
+    let status = row
+        .get::<String, _>("status")
+        .parse::<MembershipStatus>()
+        .map_err(|error| {
+            tracing::warn!(%error, "membership row has invalid status");
+            ChatRepositoryError::Database
+        })?;
+
+    Ok(ChatMembership {
+        id: row.get("id"),
+        conversation_id: row.get("conversation_id"),
+        user_id: row.get("user_id"),
+        role,
+        status,
+        visible_from_message_id: row.get("visible_from_message_id"),
+    })
+}
+
+fn chat_message_from_row(row: sqlx::mysql::MySqlRow) -> Result<ChatMessage, ChatRepositoryError> {
+    let message_type = row
+        .get::<String, _>("message_type")
+        .parse::<MessageType>()
+        .map_err(|error| {
+            tracing::warn!(%error, "message row has invalid message_type");
+            ChatRepositoryError::Database
+        })?;
+
+    Ok(ChatMessage {
+        id: row.get("id"),
+        public_id: row.get("public_id"),
+        conversation_public_id: row.get("conversation_public_id"),
+        sender_id: row.get("sender_id"),
+        sender_public_id: row.get("sender_public_id"),
+        sender_user_name: row.get("sender_user_name"),
+        sender_public_name: row.get("sender_public_name"),
+        body: row.get("body"),
+        message_type,
+        created_at: row.get("created_at"),
     })
 }
 

@@ -8,16 +8,21 @@ use crate::{
         service::{is_valid_user_name, normalize_user_name},
     },
     chat::{
-        dto::{ConversationResponse, CreateDirectConversationRequest, DirectConversationResponse},
-        model::{canonical_direct_pair, MembershipRole, MembershipStatus},
+        dto::{
+            ConversationResponse, CreateDirectConversationRequest, DirectConversationResponse,
+            MessageResponse, MessageSenderResponse, SendMessageRequest, SendMessageResponse,
+        },
+        model::{canonical_direct_pair, MembershipRole, MembershipStatus, MessageType},
         repository::{
-            ChatConversation, ChatRepository, ChatRepositoryError, ChatUser,
-            NewConversationMembership, NewDirectConversation,
+            ChatConversation, ChatMessage, ChatRepository, ChatRepositoryError, ChatUser,
+            NewConversationMembership, NewDirectConversation, NewMessage,
         },
     },
     public_id::{generate_public_id, PublicIdPrefix},
     users::model::{DmPolicy, UserStatus},
 };
+
+const MAX_MESSAGE_BODY_CHARS: usize = 4_000;
 
 pub struct ChatService<'a> {
     state: &'a AppState,
@@ -86,6 +91,51 @@ impl<'a> ChatService<'a> {
 
         Ok(to_direct_conversation_response(conversation, target))
     }
+
+    pub async fn send_message(
+        &self,
+        requester: AuthenticatedUser,
+        conversation_public_id: String,
+        request: SendMessageRequest,
+    ) -> Result<SendMessageResponse, ChatServiceError> {
+        ensure_current_user_can_write(requester.status)?;
+        let body = validate_message_body(request.body)?;
+
+        let pool = self.state.database.pool().ok_or_else(|| {
+            ChatServiceError::DatabaseUnavailable(
+                self.state
+                    .database
+                    .unavailable_reason()
+                    .unwrap_or("Database pool is not available")
+                    .to_string(),
+            )
+        })?;
+        let repository = ChatRepository::new(pool);
+        let conversation = repository
+            .find_conversation_by_public_id(&conversation_public_id)
+            .await
+            .map_err(ChatServiceError::from)?
+            .ok_or(ChatServiceError::ConversationNotFound)?;
+
+        repository
+            .find_active_membership(conversation.id, requester.id)
+            .await
+            .map_err(ChatServiceError::from)?
+            .ok_or(ChatServiceError::NotConversationMember)?;
+
+        let message = repository
+            .insert_message(NewMessage {
+                public_id: generate_public_id(PublicIdPrefix::Message),
+                conversation_id: conversation.id,
+                sender_id: requester.id,
+                body,
+                message_type: MessageType::Text,
+            })
+            .await
+            .map_err(ChatServiceError::from)?;
+
+        Ok(to_send_message_response(message))
+    }
 }
 
 #[derive(Debug)]
@@ -94,6 +144,8 @@ pub enum ChatServiceError {
     CurrentUserCannotWrite,
     CannotMessageSelf,
     UserNotFound,
+    ConversationNotFound,
+    NotConversationMember,
     TargetUnavailable,
     DmNotAllowed,
     DatabaseUnavailable(String),
@@ -129,6 +181,26 @@ pub fn validate_target_user_name(target_user_name: String) -> Result<String, Cha
 
     if fields.is_empty() {
         Ok(target_user_name)
+    } else {
+        Err(ChatServiceError::Validation(fields))
+    }
+}
+
+pub fn validate_message_body(body: String) -> Result<String, ChatServiceError> {
+    let mut fields = BTreeMap::new();
+    let body = body.trim().to_string();
+
+    if body.is_empty() {
+        fields.insert("body", "required".to_string());
+    } else if body.chars().count() > MAX_MESSAGE_BODY_CHARS {
+        fields.insert(
+            "body",
+            format!("must be {MAX_MESSAGE_BODY_CHARS} characters or fewer"),
+        );
+    }
+
+    if fields.is_empty() {
+        Ok(body)
     } else {
         Err(ChatServiceError::Validation(fields))
     }
@@ -223,6 +295,23 @@ fn to_direct_conversation_response(
     }
 }
 
+fn to_send_message_response(message: ChatMessage) -> SendMessageResponse {
+    SendMessageResponse {
+        message: MessageResponse {
+            public_id: message.public_id,
+            conversation_id: message.conversation_public_id,
+            sender: MessageSenderResponse {
+                public_id: message.sender_public_id,
+                user_name: message.sender_user_name,
+                public_name: message.sender_public_name,
+            },
+            body: message.body,
+            message_type: message.message_type.as_str(),
+            created_at: message.created_at,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -295,5 +384,21 @@ mod tests {
     fn direct_pair_helper_rejects_self() {
         assert_eq!(canonical_direct_pair(1, 1), None);
         assert_eq!(canonical_direct_pair(9, 2), Some((2, 9)));
+    }
+
+    #[test]
+    fn validates_message_body() {
+        assert_eq!(
+            validate_message_body("  Merhaba  ".to_string()).unwrap(),
+            "Merhaba"
+        );
+        assert!(matches!(
+            validate_message_body("   ".to_string()),
+            Err(ChatServiceError::Validation(_))
+        ));
+        assert!(matches!(
+            validate_message_body("a".repeat(MAX_MESSAGE_BODY_CHARS + 1)),
+            Err(ChatServiceError::Validation(_))
+        ));
     }
 }

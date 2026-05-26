@@ -1,5 +1,5 @@
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -9,7 +9,7 @@ use crate::{
     app_state::AppState,
     auth::service::{authenticate_current_user, CurrentUserError},
     chat::{
-        dto::CreateDirectConversationRequest,
+        dto::{CreateDirectConversationRequest, SendMessageRequest},
         service::{ChatService, ChatServiceError},
     },
     http::response::{ApiErrorPayload, ApiResponse},
@@ -30,6 +30,26 @@ pub async fn create_direct_conversation(
         .await
     {
         Ok(response) => success(StatusCode::OK, "chat.conversation.direct", response),
+        Err(error) => chat_error_response(error),
+    }
+}
+
+pub async fn send_message(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(conversation_id): Path<String>,
+    Json(request): Json<SendMessageRequest>,
+) -> Response {
+    let requester = match authenticate_current_user(&state, &headers).await {
+        Ok(user) => user,
+        Err(error) => return auth_error_response(error),
+    };
+
+    match ChatService::new(&state)
+        .send_message(requester, conversation_id, request)
+        .await
+    {
+        Ok(response) => success(StatusCode::OK, "chat.message.created", response),
         Err(error) => chat_error_response(error),
     }
 }
@@ -92,7 +112,7 @@ fn chat_error_response(error: ChatServiceError) -> Response {
         ChatServiceError::CurrentUserCannotWrite => (
             StatusCode::FORBIDDEN,
             "error.forbidden",
-            ApiErrorPayload::new("forbidden", "Current user cannot create conversations"),
+            ApiErrorPayload::new("forbidden", "Current user cannot perform this action"),
         ),
         ChatServiceError::CannotMessageSelf => (
             StatusCode::BAD_REQUEST,
@@ -106,6 +126,19 @@ fn chat_error_response(error: ChatServiceError) -> Response {
             StatusCode::NOT_FOUND,
             "error.not_found",
             ApiErrorPayload::new("user_not_found", "User was not found"),
+        ),
+        ChatServiceError::ConversationNotFound => (
+            StatusCode::NOT_FOUND,
+            "error.not_found",
+            ApiErrorPayload::new("conversation_not_found", "Conversation was not found"),
+        ),
+        ChatServiceError::NotConversationMember => (
+            StatusCode::FORBIDDEN,
+            "error.forbidden",
+            ApiErrorPayload::new(
+                "not_conversation_member",
+                "Current user is not a member of this conversation",
+            ),
         ),
         ChatServiceError::TargetUnavailable => (
             StatusCode::FORBIDDEN,
