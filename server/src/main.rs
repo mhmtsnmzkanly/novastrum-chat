@@ -8,6 +8,7 @@ mod error;
 mod http;
 mod public_id;
 mod users;
+mod ws;
 
 use app_state::AppState;
 use config::Config;
