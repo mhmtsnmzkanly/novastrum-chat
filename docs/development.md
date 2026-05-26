@@ -164,12 +164,41 @@ npm run typecheck
 
 The current web app is a static skeleton only. It does not call the backend.
 
-## 8. Current Limitations
+## 8. Backend REST Smoke Test
+
+After MariaDB is running, migrations are applied, and the backend is started, run the manual REST smoke script from the repository root:
+
+```sh
+tools/smoke/backend-rest-smoke.sh
+```
+
+The script uses `curl`, a temporary cookie jar, and the current auth/chat REST endpoints. It does not run cleanup SQL and does not delete existing data.
+
+Prerequisites:
+
+- `DATABASE_URL` points to a local development database.
+- `sqlx migrate run` has been run from `server/`.
+- The backend is running locally.
+- `curl` is installed.
+
+Override the backend URL if needed:
+
+```sh
+BASE_URL='http://127.0.0.1:18080' tools/smoke/backend-rest-smoke.sh
+```
+
+The current default `dm_policy` is `shared_group_members`, so direct conversation creation between fresh smoke users may be blocked. For local smoke testing only, the script prints this SQL hint when needed:
+
+```sql
+UPDATE users SET dm_policy = 'everyone' WHERE user_name = 'ayse_smoke';
+```
+
+Cleanup SQL for local development is documented in `docs/backend-smoke-test-plan.md`.
+
+## 9. Current Limitations
 
 Not implemented yet:
 
-- Auth.
-- Chat.
 - WebSocket.
 - Automatic migration runner.
 - Real API client.
@@ -177,7 +206,7 @@ Not implemented yet:
 - Routing library.
 - Frontend state management library.
 
-## 9. Git Hygiene
+## 10. Git Hygiene
 
 Rules:
 
@@ -190,7 +219,7 @@ Rules:
 
 The root `.gitignore` already excludes current build outputs.
 
-## 10. Next Likely Implementation Steps
+## 11. Next Likely Implementation Steps
 
 Likely next slices:
 
@@ -202,7 +231,7 @@ Likely next slices:
 
 These are likely next steps, not authorization to implement them in this documentation task.
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 ### `DATABASE_URL` Missing
 
