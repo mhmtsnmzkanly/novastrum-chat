@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -9,7 +9,7 @@ use crate::{
     app_state::AppState,
     auth::service::{authenticate_current_user, CurrentUserError},
     chat::{
-        dto::{CreateDirectConversationRequest, SendMessageRequest},
+        dto::{CreateDirectConversationRequest, MessageHistoryQuery, SendMessageRequest},
         service::{ChatService, ChatServiceError},
     },
     http::response::{ApiErrorPayload, ApiResponse},
@@ -50,6 +50,26 @@ pub async fn send_message(
         .await
     {
         Ok(response) => success(StatusCode::OK, "chat.message.created", response),
+        Err(error) => chat_error_response(error),
+    }
+}
+
+pub async fn list_messages(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(conversation_id): Path<String>,
+    Query(query): Query<MessageHistoryQuery>,
+) -> Response {
+    let requester = match authenticate_current_user(&state, &headers).await {
+        Ok(user) => user,
+        Err(error) => return auth_error_response(error),
+    };
+
+    match ChatService::new(&state)
+        .list_messages(requester, conversation_id, query)
+        .await
+    {
+        Ok(response) => success(StatusCode::OK, "chat.messages.list", response),
         Err(error) => chat_error_response(error),
     }
 }
@@ -139,6 +159,11 @@ fn chat_error_response(error: ChatServiceError) -> Response {
                 "not_conversation_member",
                 "Current user is not a member of this conversation",
             ),
+        ),
+        ChatServiceError::MessageCursorNotFound => (
+            StatusCode::NOT_FOUND,
+            "error.not_found",
+            ApiErrorPayload::new("message_cursor_not_found", "Message cursor was not found"),
         ),
         ChatServiceError::TargetUnavailable => (
             StatusCode::FORBIDDEN,

@@ -316,6 +316,73 @@ impl<'a> ChatRepository<'a> {
 
         chat_message_from_row(row)
     }
+
+    pub async fn find_message_cursor_by_public_id(
+        &self,
+        conversation_id: u64,
+        public_id: &str,
+    ) -> Result<Option<u64>, ChatRepositoryError> {
+        let row = sqlx::query(
+            r#"
+            SELECT id
+            FROM messages
+            WHERE conversation_id = ?
+                AND public_id = ?
+            LIMIT 1
+            "#,
+        )
+        .bind(conversation_id)
+        .bind(public_id)
+        .fetch_optional(self.pool)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "message cursor lookup failed");
+            ChatRepositoryError::Database
+        })?;
+
+        Ok(row.map(|row| row.get("id")))
+    }
+
+    pub async fn list_visible_messages(
+        &self,
+        conversation_id: u64,
+        visible_after_message_id: u64,
+        before_message_id: Option<u64>,
+        limit: u32,
+    ) -> Result<Vec<ChatHistoryMessage>, ChatRepositoryError> {
+        let rows = match before_message_id {
+            Some(before_message_id) => {
+                let query = history_messages_query(
+                    "AND messages.id < ?",
+                    "ORDER BY messages.id DESC LIMIT ?",
+                );
+                sqlx::query(&query)
+                    .bind(conversation_id)
+                    .bind(visible_after_message_id)
+                    .bind(before_message_id)
+                    .bind(limit)
+                    .fetch_all(self.pool)
+                    .await
+            }
+            None => {
+                let query = history_messages_query("", "ORDER BY messages.id DESC LIMIT ?");
+                sqlx::query(&query)
+                    .bind(conversation_id)
+                    .bind(visible_after_message_id)
+                    .bind(limit)
+                    .fetch_all(self.pool)
+                    .await
+            }
+        }
+        .map_err(|error| {
+            tracing::warn!(%error, "visible message history lookup failed");
+            ChatRepositoryError::Database
+        })?;
+
+        rows.into_iter()
+            .map(chat_history_message_from_row)
+            .collect()
+    }
 }
 
 #[derive(Debug)]
@@ -368,7 +435,6 @@ pub struct ChatMembership {
     pub role: MembershipRole,
     #[allow(dead_code)]
     pub status: MembershipStatus,
-    #[allow(dead_code)]
     pub visible_from_message_id: u64,
 }
 
@@ -386,6 +452,20 @@ pub struct ChatMessage {
     pub body: String,
     pub message_type: MessageType,
     pub created_at: String,
+}
+
+#[derive(Debug)]
+pub struct ChatHistoryMessage {
+    pub id: u64,
+    pub public_id: String,
+    pub conversation_public_id: String,
+    pub sender_public_id: String,
+    pub sender_user_name: String,
+    pub sender_public_name: String,
+    pub body: Option<String>,
+    pub message_type: MessageType,
+    pub created_at: String,
+    pub deleted_at: Option<String>,
 }
 
 #[derive(Debug)]
@@ -499,6 +579,64 @@ fn chat_message_from_row(row: sqlx::mysql::MySqlRow) -> Result<ChatMessage, Chat
         message_type,
         created_at: row.get("created_at"),
     })
+}
+
+fn chat_history_message_from_row(
+    row: sqlx::mysql::MySqlRow,
+) -> Result<ChatHistoryMessage, ChatRepositoryError> {
+    let message_type = row
+        .get::<String, _>("message_type")
+        .parse::<MessageType>()
+        .map_err(|error| {
+            tracing::warn!(%error, "history message row has invalid message_type");
+            ChatRepositoryError::Database
+        })?;
+
+    Ok(ChatHistoryMessage {
+        id: row.get("id"),
+        public_id: row.get("public_id"),
+        conversation_public_id: row.get("conversation_public_id"),
+        sender_public_id: row.get("sender_public_id"),
+        sender_user_name: row.get("sender_user_name"),
+        sender_public_name: row.get("sender_public_name"),
+        body: row.get("body"),
+        message_type,
+        created_at: row.get("created_at"),
+        deleted_at: row.get("deleted_at"),
+    })
+}
+
+fn history_messages_query(extra_filter: &'static str, order_limit: &'static str) -> String {
+    format!(
+        r#"
+        SELECT
+            messages.id,
+            messages.public_id,
+            conversations.public_id AS conversation_public_id,
+            users.public_id AS sender_public_id,
+            users.user_name AS sender_user_name,
+            users.public_name AS sender_public_name,
+            CASE
+                WHEN messages.deleted_at IS NULL THEN messages.body
+                ELSE NULL
+            END AS body,
+            messages.message_type,
+            DATE_FORMAT(messages.created_at, '%Y-%m-%dT%H:%i:%s.%fZ') AS created_at,
+            CASE
+                WHEN messages.deleted_at IS NULL THEN NULL
+                ELSE DATE_FORMAT(messages.deleted_at, '%Y-%m-%dT%H:%i:%s.%fZ')
+            END AS deleted_at
+        FROM messages
+        INNER JOIN conversations
+            ON conversations.id = messages.conversation_id
+        INNER JOIN users
+            ON users.id = messages.sender_id
+        WHERE messages.conversation_id = ?
+            AND messages.id > ?
+            {extra_filter}
+        {order_limit}
+        "#
+    )
 }
 
 async fn insert_membership(

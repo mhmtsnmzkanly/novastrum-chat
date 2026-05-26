@@ -10,12 +10,14 @@ use crate::{
     chat::{
         dto::{
             ConversationResponse, CreateDirectConversationRequest, DirectConversationResponse,
-            MessageResponse, MessageSenderResponse, SendMessageRequest, SendMessageResponse,
+            HistoryMessageResponse, MessageHistoryPage, MessageHistoryQuery,
+            MessageHistoryResponse, MessageResponse, MessageSenderResponse, SendMessageRequest,
+            SendMessageResponse,
         },
         model::{canonical_direct_pair, MembershipRole, MembershipStatus, MessageType},
         repository::{
-            ChatConversation, ChatMessage, ChatRepository, ChatRepositoryError, ChatUser,
-            NewConversationMembership, NewDirectConversation, NewMessage,
+            ChatConversation, ChatHistoryMessage, ChatMessage, ChatRepository, ChatRepositoryError,
+            ChatUser, NewConversationMembership, NewDirectConversation, NewMessage,
         },
     },
     public_id::{generate_public_id, PublicIdPrefix},
@@ -23,6 +25,8 @@ use crate::{
 };
 
 const MAX_MESSAGE_BODY_CHARS: usize = 4_000;
+const DEFAULT_HISTORY_LIMIT: u32 = 50;
+const MAX_HISTORY_LIMIT: u32 = 100;
 
 pub struct ChatService<'a> {
     state: &'a AppState,
@@ -136,6 +140,88 @@ impl<'a> ChatService<'a> {
 
         Ok(to_send_message_response(message))
     }
+
+    pub async fn list_messages(
+        &self,
+        requester: AuthenticatedUser,
+        conversation_public_id: String,
+        query: MessageHistoryQuery,
+    ) -> Result<MessageHistoryResponse, ChatServiceError> {
+        let limit = parse_history_limit(query.limit)?;
+
+        let pool = self.state.database.pool().ok_or_else(|| {
+            ChatServiceError::DatabaseUnavailable(
+                self.state
+                    .database
+                    .unavailable_reason()
+                    .unwrap_or("Database pool is not available")
+                    .to_string(),
+            )
+        })?;
+        let repository = ChatRepository::new(pool);
+        let conversation = repository
+            .find_conversation_by_public_id(&conversation_public_id)
+            .await
+            .map_err(ChatServiceError::from)?
+            .ok_or(ChatServiceError::ConversationNotFound)?;
+
+        let membership = repository
+            .find_active_membership(conversation.id, requester.id)
+            .await
+            .map_err(ChatServiceError::from)?
+            .ok_or(ChatServiceError::NotConversationMember)?;
+
+        let before_message_id = match query.before {
+            Some(before) if !before.trim().is_empty() => Some(
+                repository
+                    .find_message_cursor_by_public_id(conversation.id, before.trim())
+                    .await
+                    .map_err(ChatServiceError::from)?
+                    .ok_or(ChatServiceError::MessageCursorNotFound)?,
+            ),
+            Some(_) => return Err(validation_error("before", "must not be empty")),
+            None => None,
+        };
+        if before_message_id
+            .is_some_and(|message_id| message_id <= membership.visible_from_message_id)
+        {
+            return Err(ChatServiceError::MessageCursorNotFound);
+        }
+
+        let mut messages = repository
+            .list_visible_messages(
+                conversation.id,
+                membership.visible_from_message_id,
+                before_message_id,
+                limit + 1,
+            )
+            .await
+            .map_err(ChatServiceError::from)?;
+
+        let has_more = messages.len() > limit as usize;
+        if has_more {
+            messages.truncate(limit as usize);
+        }
+        messages.reverse();
+
+        let next_cursor = if has_more {
+            messages.first().map(|message| message.public_id.clone())
+        } else {
+            None
+        };
+        let items = messages
+            .into_iter()
+            .map(to_history_message_response)
+            .collect();
+
+        Ok(MessageHistoryResponse {
+            items,
+            page: MessageHistoryPage {
+                next_cursor,
+                has_more,
+            },
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -146,6 +232,7 @@ pub enum ChatServiceError {
     UserNotFound,
     ConversationNotFound,
     NotConversationMember,
+    MessageCursorNotFound,
     TargetUnavailable,
     DmNotAllowed,
     DatabaseUnavailable(String),
@@ -204,6 +291,28 @@ pub fn validate_message_body(body: String) -> Result<String, ChatServiceError> {
     } else {
         Err(ChatServiceError::Validation(fields))
     }
+}
+
+pub fn parse_history_limit(limit: Option<String>) -> Result<u32, ChatServiceError> {
+    let Some(limit) = limit else {
+        return Ok(DEFAULT_HISTORY_LIMIT);
+    };
+    let limit = limit.trim();
+    if limit.is_empty() {
+        return Err(validation_error("limit", "must be a number"));
+    }
+
+    match limit.parse::<u32>() {
+        Ok(0) => Err(validation_error("limit", "must be at least 1")),
+        Ok(value) => Ok(value.min(MAX_HISTORY_LIMIT)),
+        Err(_) => Err(validation_error("limit", "must be a number")),
+    }
+}
+
+fn validation_error(field: &'static str, message: impl Into<String>) -> ChatServiceError {
+    let mut fields = BTreeMap::new();
+    fields.insert(field, message.into());
+    ChatServiceError::Validation(fields)
 }
 
 pub fn ensure_current_user_can_write(status: UserStatus) -> Result<(), ChatServiceError> {
@@ -312,6 +421,22 @@ fn to_send_message_response(message: ChatMessage) -> SendMessageResponse {
     }
 }
 
+fn to_history_message_response(message: ChatHistoryMessage) -> HistoryMessageResponse {
+    HistoryMessageResponse {
+        public_id: message.public_id,
+        conversation_id: message.conversation_public_id,
+        sender: MessageSenderResponse {
+            public_id: message.sender_public_id,
+            user_name: message.sender_user_name,
+            public_name: message.sender_public_name,
+        },
+        body: message.body,
+        message_type: message.message_type.as_str(),
+        created_at: message.created_at,
+        deleted_at: message.deleted_at,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -398,6 +523,24 @@ mod tests {
         ));
         assert!(matches!(
             validate_message_body("a".repeat(MAX_MESSAGE_BODY_CHARS + 1)),
+            Err(ChatServiceError::Validation(_))
+        ));
+    }
+
+    #[test]
+    fn parses_history_limit_with_default_and_cap() {
+        assert_eq!(parse_history_limit(None).unwrap(), DEFAULT_HISTORY_LIMIT);
+        assert_eq!(parse_history_limit(Some("25".to_string())).unwrap(), 25);
+        assert_eq!(
+            parse_history_limit(Some("500".to_string())).unwrap(),
+            MAX_HISTORY_LIMIT
+        );
+        assert!(matches!(
+            parse_history_limit(Some("0".to_string())),
+            Err(ChatServiceError::Validation(_))
+        ));
+        assert!(matches!(
+            parse_history_limit(Some("abc".to_string())),
             Err(ChatServiceError::Validation(_))
         ));
     }
