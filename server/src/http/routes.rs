@@ -1,6 +1,6 @@
 use axum::{routing::get, Router};
 
-use crate::{app_state::AppState, auth, http::health};
+use crate::{app_state::AppState, auth, chat, http::health};
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -8,4 +8,5 @@ pub fn router() -> Router<AppState> {
         .route("/health/db", get(health::database_health))
         .route("/api/me", get(auth::handler::me))
         .nest("/api/auth", auth::routes::router())
+        .nest("/api/conversations", chat::routes::router())
 }

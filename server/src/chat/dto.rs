@@ -1,4 +1,21 @@
-#![allow(dead_code)]
+use serde::{Deserialize, Serialize};
 
-// Public chat API DTOs will be added with the first REST conversation endpoint.
-// Keep this module reserved so handler contracts do not leak repository structs.
+use crate::auth::dto::PublicUserResponse;
+
+#[derive(Debug, Deserialize)]
+pub struct CreateDirectConversationRequest {
+    pub target_user_name: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DirectConversationResponse {
+    pub conversation: ConversationResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConversationResponse {
+    pub public_id: String,
+    pub kind: &'static str,
+    pub title: Option<String>,
+    pub target_user: PublicUserResponse,
+}
