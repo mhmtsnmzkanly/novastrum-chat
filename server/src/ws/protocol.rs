@@ -5,6 +5,8 @@ use crate::{
     users::model::UserStatus,
 };
 
+pub type OutboundPacket = serde_json::Value;
+
 #[derive(Debug, Deserialize)]
 pub struct ClientPacket {
     #[allow(dead_code)]
@@ -98,4 +100,12 @@ pub fn unknown_packet_type_packet() -> ServerPacket<ErrorData> {
             message: "Unknown packet type",
         },
     )
+}
+
+#[allow(dead_code)]
+pub fn packet_to_outbound<T>(packet: &ServerPacket<T>) -> Result<OutboundPacket, serde_json::Error>
+where
+    T: Serialize,
+{
+    serde_json::to_value(packet)
 }
