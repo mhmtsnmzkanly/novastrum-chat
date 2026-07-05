@@ -16,6 +16,7 @@ use crate::{
         service::{ChatService, ChatServiceError},
     },
     http::response::{ApiErrorPayload, ApiResponse},
+    ws::protocol::{ServerPacket, packet_to_outbound},
 };
 
 pub async fn create_direct_conversation(
@@ -68,10 +69,30 @@ pub async fn send_message(
     };
 
     match ChatService::new(&state)
-        .send_message(requester, conversation_id, request)
+        .send_message(requester, conversation_id.clone(), request)
         .await
     {
-        Ok(response) => success(StatusCode::OK, "chat.message.created", response),
+        Ok(response) => {
+            // Build and broadcast packet only to participants of this conversation (room)
+            let packet = ServerPacket::ok(
+                "chat.message.created",
+                serde_json::json!({
+                    "conversation_id": conversation_id,
+                    "sender": {
+                        "public_id": requester.public_id,
+                        "user_name": requester.user_name,
+                    },
+                    "content": request.content,
+                }),
+            );
+            if let Ok(outbound) = packet_to_outbound(&packet) {
+                // Fire‑and‑forget broadcast (await to ensure send order)
+                state.broadcast_to_room_id(&conversation_id, outbound).await;
+            } else {
+                tracing::error!("failed to convert packet to outbound");
+            }
+            success(StatusCode::OK, "chat.message.created", response)
+        }
         Err(error) => chat_error_response(error),
     }
 }

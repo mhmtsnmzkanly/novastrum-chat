@@ -1,5 +1,8 @@
 mod app;
 mod app_state;
+use tokio::sync::broadcast;
+use std::sync::Arc;
+use crate::ws::hub::WsHub;
 mod auth;
 mod chat;
 mod config;
@@ -23,6 +26,15 @@ async fn main() -> AppResult<()> {
     let bind_addr = config.bind_addr()?;
     let database = db::Database::from_config(&config);
     let app_state = AppState::new(config, database);
+// Clone hub and broadcast receiver for background task
+let hub_clone: Arc<WsHub> = app_state.ws_hub.clone();
+let mut broadcast_rx = app_state.ws_broadcast.subscribe();
+// Spawn hub task that forwards broadcast packets to all connections
+tokio::spawn(async move {
+    while let Ok(packet) = broadcast_rx.recv().await {
+        hub_clone.broadcast(packet).await;
+    }
+});
     let router = app::build_router(app_state);
 
     tracing::info!(%bind_addr, "starting novastrum server");

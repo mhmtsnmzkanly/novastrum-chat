@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     collections::HashMap,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -120,6 +121,54 @@ impl Default for WsHub {
         Self::new()
     }
 }
+
+impl WsHub {
+    /// Broadcast an outbound packet to all active connections across all users.
+    pub async fn broadcast(&self, packet: OutboundPacket) -> usize {
+        let senders = {
+            let connections = self.inner.connections.read().await;
+            connections
+                .values()
+                .flat_map(|user_map| user_map.values().cloned())
+                .collect::<Vec<_>>()
+        };
+        let mut sent = 0;
+        for sender in senders {
+            if sender.send(packet.clone()).await.is_ok() {
+                sent += 1;
+            }
+        }
+        sent
+    }
+
+    /// Broadcast packet only to participants whose public_id (as string) is present in the set.
+    pub async fn broadcast_to_room(&self, room_participants: &HashSet<String>, packet: OutboundPacket) -> usize {
+        // Snapshot senders for matching participants.
+        let senders = {
+            let connections = self.inner.connections.read().await;
+            connections
+                .iter()
+                .filter_map(|(user_id, user_conns)| {
+                    // Convert user_id to string for comparison. Adjust conversion as needed.
+                    if room_participants.contains(&user_id.to_string()) {
+                        Some(user_conns.values().cloned().collect::<Vec<_>>())
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .collect::<Vec<_>>()
+        };
+        let mut sent = 0;
+        for sender in senders {
+            if sender.send(packet.clone()).await.is_ok() {
+                sent += 1;
+            }
+        }
+        sent
+    }
+}
+
 
 #[derive(Debug)]
 pub struct RegisteredConnection {
